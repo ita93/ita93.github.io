@@ -60,135 +60,135 @@ Sau đây là danh sách các trường của ```struct file_operations```
 <div style="background-color: lightblue;">
 <p class="text-uppercase">FPI Warning: It's boring</p>
 <pre>
-struct module *owner;
+<code>struct module *owner;</code>
 	/*
 		Đây là trường đầu tiên của fops struct, nó không phải là một tác vụ mà là một con trỏ trỏ đến module sử hữu structure này. 
 		Tác dụng: Ngăn chặn việc unload module khi các tác vụ của nó chưa hoàn thành.
 		Thông thường nó được khởi tọa bằng giá trị THIS_MODULE (linux/modules.h)
 	*/
 
-loff_t (*llseek) (struct file *, loff_t, int);
+<code>loff_t (*llseek) (struct file *, loff_t, int);</code>
 	/*
 		Được sử dụng để thay đổi vị trí đọc/ghi hiện tại ở trong file. (seek/fseek function in C)
 		Return value: vị trí vừa mới chuyển tới, hoạc giá trị âm nếu thao tác lỗi.
 		Nếu function pointer là NULL, thì seek call sẽ sửa vị trí hiện tại trong file struct theo cách không xác định được.
 	*/
 
-ssize_t (*read) (struct file *, char __user *, size_t, loff_t *);
+<code>ssize_t (*read) (struct file *, char __user *, size_t, loff_t *);</code>
 	/*
 		Được sử dụng để lấy dữ liệu từ device. 
 		Return value: số lượng bytes đã đọc thành công.
 		NULL pointer: read system call sẽ trả về -EINVAL error.
 	*/
 
-ssize_t (*aio_read) (struct kiocb *, char __user *, size_t, loff_t *);
+<code>ssize_t (*aio_read) (struct kiocb *, char __user *, size_t, loff_t *);</code>
 	/*
 		Đọc không đồng bộ - tác vụ đọc có thể không hoàn thành trước khi hàm return.
 		NULL pointer thì nó sẽ tự trỏ đến hàm read.
 	*/
 
-ssize_t (*write) (struct file*, const char __user *, size_t, loff_t *);
+<code>ssize_t (*write) (struct file*, const char __user *, size_t, loff_t *);</code>
 	/*
 		Hàm này tương tự hàm read.
 	*/
 
-ssize_t (*aio_write) (struct kiocb *, const char __user *, size_t, loff_t *);
+<code>ssize_t (*aio_write) (struct kiocb *, const char __user *, size_t, loff_t *);</code>
 	/*
 		Hàm này tương tự hàm aio_read
 		Cả hai hàm write đều sử dụng const char => tránh sửa đổi dữ liệu truyền vào.
 	*/
 
-int (*readdir) (struct file *, void *, filldir_t);
+<code>int (*readdir) (struct file *, void *, filldir_t);</code>
 	/*
 		Để đọc các thư mục. tốt nhất là bỏ qua nó
 	*/
 
-unsigned int (*pool)(struct file *, struct poll_table_struct *);
+<code>unsigned int (*pool)(struct file *, struct poll_table_struct *);</code>
 	/*
 		Đây là backend của 3 system call: poll, epoll và select
 		--Tạm thời ignore, vì chưa tìm hiểu =))
 	*/
 
-unsigned int (*ioctl) (struct inode *, struct file *, unsigned int, usigned long);
+<code>unsigned int (*ioctl) (struct inode *, struct file *, unsigned int, usigned long);</code>
 	/*
 		ioctl system call cung cấp một phương thức để tạo ra các câu lệnh cho các device cụ thể.
 		Nếu ioctl không được implement thì sẽ báo lỗi "No such ioctl for device".
 	*/
 
-int (*mmap) (struct file*, struct vm_area_struct *);
+<code>int (*mmap) (struct file*, struct vm_area_struct *);</code>
 	/*
 		mmap được sử dụng để mapping device memory tới không gian bộ nhớ của process.
 	*/
 
-int (*open) (struct file*, struct file *);
+<code>int (*open) (struct file*, struct file *);</code>
 	/*
 		- Đây là tác vụ được thực hiện đầu tiên của device file.
 		- Có thể có hoặc không.
 		- Nếu không có thì return value luôn là true.
 	*/
 
-int (*flush) (struct file *);
+<code>int (*flush) (struct file *);</code>
 	/*
 		- được gọi khi một process đóng file descriptor (chỉ là bản copy thôi), nó sẽ thực thi và đợi các tác vụ chưa giải quyết xong trên device.
 		- Hiếm khi được sử dụng.
 		- Nếu NULL thì kernel sẽ bỏ qua request từ user space.
 	*/
 
-int (*release) (struct inode *, struct file *);
+<code>int (*release) (struct inode *, struct file *);</code>
 	/*
 		Có open thì phải có release thôi.
 	*/
 
-int (*fsync) (struct file *, struct dentry *, int);
+<code>int (*fsync) (struct file *, struct dentry *, int);</code>
 	/*
 		Flush any pending data.
 		NULL -> -EINVAL
 	*/
 
-int (*aio_fsync) (struct kiocb *, int)l
+<code>int (*aio_fsync) (struct kiocb *, int);</code>
 	/*
 		fsync khÔng đồng bộ
 	*/
 
-int (*fasync) (int, struct file *, int);
+<code>int (*fasync) (int, struct file *, int);</code>
 	/*
 		- ?????????????????????????????
 	*/
 
-int (*lock) (struct file*, int, struct file_lock *);
+<code>int (*lock) (struct file*, int, struct file_lock *);</code>
 	/*
 		- Được sử dụng để lock file, thường thì không được thực hiện bởi ldd.
 	*/
 
-ssize_t (*readv) (struct file*, const struct iovec*, unsigned long, loff_t *);
-ssize_t (*write) (struct file*, const struct iovec*, unsigned long, loff_t *);
+<code>ssize_t (*readv) (struct file*, const struct iovec*, unsigned long, loff_t *);</code>
+<code>ssize_t (*write) (struct file*, const struct iovec*, unsigned long, loff_t *);</code>
 	/*
 		- pending
 	*/
 
-ssize_t (*sendfile) (struct file*, loff_t, size_t, read_actor_t, void *);
+<code>ssize_t (*sendfile) (struct file*, loff_t, size_t, read_actor_t, void *);</code>
 	/*
 		- Được sử dụng bởi sendfile system call.
 		- Di chuyển dữ liệu từ một file descriptor tới một file descriptor khác với khối lượng copy nhỏ nhất. (tức là chỉ có gắng gửi những thứ đã bị thay đổi?).
 	*/
 
-ssize_t (*sendpage) (struct file*, struct page *, int, size_t, loff_t *, int);
+<code>ssize_t (*sendpage) (struct file*, struct page *, int, size_t, loff_t *, int);</code>
 	/*
 		sendpage giống sendfile, nhưng chỉ send từng page chứ không phải là cả file.
 		Thông thường không mấy ai implement hàm này.
 	*/
 
-unsigned log (*get_unmmapped_area) (struct file *, unsigned long, unsigned long, unsigned long, unsigned long);
+<code>unsigned log (*get_unmmapped_area) (struct file *, unsigned long, unsigned long, unsigned long, unsigned long);</code>
 	/*
 		- pending
 	*/
 
-int (*check_floags) (int);
+<code>int (*check_floags) (int);</code>
 	/*
 		- CHo phép một module kiểm tra các cờ đã được truyền vào fcntl();
 	*/
 
-int (*dir_notify) (struct file*, unsigned long);
+<code>int (*dir_notify) (struct file*, unsigned long);</code>
 	/*
 		directory change notification.
 	*/
@@ -199,49 +199,50 @@ Where is it? => linux/fs.h
 File struct đại diện cho một open file (file đang mở). (mọi open file trong hệ thống đều có một struct file tương ứng trong kernel space). Thời gian tồn tại của nó là từ lúc open() call đến lúc close() call, trong suốt thời gian đó, nó được truyển cho mọi function có thao tác trên file.
  Sau đây là những trường quan trọng nhất của cấu trúc này.
 
- mode_t f_mode;
+<code>mode_t f_mode;</code>
  	/*
  		FMODE_READ|FMODE_WRITE - readable|writeable.
  	*/
 
- loff_t fpos;
+<code>loff_t fpos;</code>
  	/*
  		- VỊ trí đọc/ghi hiện tại. 
  		- Driver có thể kiểm tra giá trị của fpos, nhưng không nên thay đổi nó một cách thông thường, thay vào đó, nó được thay đổi bởi read() và write()
  	*/
 
- unsiged int f_flags;
+<code>unsiged int f_flags;</code>
  	/*
  		File flags: O_RDONLY, O_NONBLOCK, O_SYNC.
  		Các flag này được định nghĩa trong <linux/fcntl.h>
  	*/
 
- struct file_operation *f_op;
+<code> struct file_operation *f_op;</code>
  	/*
  		- Các tác vụ gắn với file.
  		- Do kernel không lưu lại f_op cho các lần tham chiếu sau đấy, nên chúng ta có thể thay đổi file_operation gắn với file bất cứ lúc nào và điều này sẽ gây ảnh hưởng ngay lập tức.
  	*/
 
- void *private_data;
+<code>void *private_data;</code>
  	/*
  		- Trước khi gọi system call open(), đây là một con trỏ NULL.
  		- Có thể dùng hoặc không dùng đều được.
  		- Dùng để lưu giữ các thông tin cố định thông suốt quá trình sử dụng của device.
  		- Cần giải phóng ở hàm release()
  	*/
- struct dentry *f_dentry;
+<code>struct dentry *f_dentry;</code>
  	/*
  		- Directory entry gắn với file.
  	*/
 
 ### 2.2. inode struct
-	- Kernel dùng inode để đại diện cho các file. Lưu ý rằng struct file là đại diện cho descriptor của các file đang mở (fd), do đó với mỗi file trong hệ thống, có thể có nhiều fd nhưng chỉ có duy nhát một inode.
-	- Chứa các thông tin hữu ích về file:
-	dev_t i_rdev;
-		/*
-			Chứa device number;
-		*/
-	struct cdev *i_cdev;
-		/*
-			cdev là cấu trúc biểu diễn char devices;
-		*/
+
+- Kernel dùng inode để đại diện cho các file. Lưu ý rằng struct file là đại diện cho descriptor của các file đang mở (fd), do đó với mỗi file trong hệ thống, có thể có nhiều fd nhưng chỉ có duy nhát một inode.
+- Chứa các thông tin hữu ích về file:
+<code>dev_t i_rdev;</code>
+	/*
+		Chứa device number;
+	*/
+<code>struct cdev *i_cdev;</code>
+	/*
+		cdev là cấu trúc biểu diễn char devices;
+	*/
