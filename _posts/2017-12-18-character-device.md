@@ -56,7 +56,8 @@ Hầu hết các tác vụ cơ bản của driver gọi đến 3 kernel data str
 file operation structure giúp kết nối các tác vụ của driver với các device number. Mỗi file đang mở (biểu diễn bởi file structure) được liên kết với một tập các function (f_op). Các function này sẽ thực hiện các tác vụ của driver. Nói theo ngôn ngữ OOP thì các file là các Object còn các funtion thực hiện trên file là các method của nó.
 Mỗi trường trong file operation structure phải trỏ đến một function được định nghĩa bởi driver, function này thực hiện một tác vụ cụ thể. Nếu một trường nào đó là NULL thì có nghĩa là tác vụ đấy không được hỗ trợ. Mỗi tác vụ này sẽ có các hàm system call tương ứng để có thể gọi đến từ user space.
 Sau đây là danh sách các trường của ```struct file_operations```
-```FPI WARNING: It's boring
+
+<div style="background-color: lightblue;">
 struct module *owner;
 	/*
 		Đây là trường đầu tiên của fops struct, nó không phải là một tác vụ mà là một con trỏ trỏ đến module sử hữu structure này. 
@@ -188,5 +189,6 @@ int (*check_floags) (int);
 int (*dir_notify) (struct file*, unsigned long);
 	/*
 		directory change notification.
-	*/```
+	*/
+</div>
 	
