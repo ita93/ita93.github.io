@@ -57,7 +57,7 @@ file operation structure giúp kết nối các tác vụ của driver với cá
 Mỗi trường trong file operation structure phải trỏ đến một function được định nghĩa bởi driver, function này thực hiện một tác vụ cụ thể. Nếu một trường nào đó là NULL thì có nghĩa là tác vụ đấy không được hỗ trợ. Mỗi tác vụ này sẽ có các hàm system call tương ứng để có thể gọi đến từ user space.
 Sau đây là danh sách các trường của ```struct file_operations```
 
-<div style="background-color: green;">
+<div style="background-color: #03feb0;">
 <p class="text-uppercase">FPI Warning: It's boring</p>
 
 <p style="background-color: lightblue;"><code>struct module *owner;</code>
