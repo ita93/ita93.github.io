@@ -59,7 +59,7 @@ Sau đây là danh sách các trường của ```struct file_operations```
 
 <div style="background-color: lightblue;">
 <p class="text-uppercase">FPI Warning: It's boring</p>
-<pre>
+
 <code>struct module *owner;</code>
 	/*
 		Đây là trường đầu tiên của fops struct, nó không phải là một tác vụ mà là một con trỏ trỏ đến module sử hữu structure này. 
@@ -192,7 +192,6 @@ Sau đây là danh sách các trường của ```struct file_operations```
 	/*
 		directory change notification.
 	*/
-</pre>
 </div>
 ### 2.2. File Struct - filp
 Where is it? => linux/fs.h
@@ -238,11 +237,14 @@ File struct đại diện cho một open file (file đang mở). (mọi open fil
 
 - Kernel dùng inode để đại diện cho các file. Lưu ý rằng struct file là đại diện cho descriptor của các file đang mở (fd), do đó với mỗi file trong hệ thống, có thể có nhiều fd nhưng chỉ có duy nhát một inode.
 - Chứa các thông tin hữu ích về file:
-<code>dev_t i_rdev;</code>
+<p><code>dev_t i_rdev;</code>
 	/*
 		Chứa device number;
 	*/
+</p>
+<p>
 <code>struct cdev *i_cdev;</code>
 	/*
 		cdev là cấu trúc biểu diễn char devices;
 	*/
+</p>
