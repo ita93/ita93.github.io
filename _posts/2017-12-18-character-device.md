@@ -67,6 +67,7 @@ Sau đây là danh sách các trường của ```struct file_operations```
 		Thông thường nó được khởi tọa bằng giá trị THIS_MODULE (linux/modules.h)
 	*/
 </p>
+<br/>
 <p><code>loff_t (*llseek) (struct file *, loff_t, int);</code>
 	/*
 		Được sử dụng để thay đổi vị trí đọc/ghi hiện tại ở trong file. (seek/fseek function in C)
@@ -74,6 +75,7 @@ Sau đây là danh sách các trường của ```struct file_operations```
 		Nếu function pointer là NULL, thì seek call sẽ sửa vị trí hiện tại trong file struct theo cách không xác định được.
 	*/
 </p>
+<br/>
 <p><code>ssize_t (*read) (struct file *, char __user *, size_t, loff_t *);</code>
 	/*
 		Được sử dụng để lấy dữ liệu từ device. 
@@ -81,45 +83,53 @@ Sau đây là danh sách các trường của ```struct file_operations```
 		NULL pointer: read system call sẽ trả về -EINVAL error.
 	*/
 </p>
+<br/>
 <p><code>ssize_t (*aio_read) (struct kiocb *, char __user *, size_t, loff_t *);</code>
 	/*
 		Đọc không đồng bộ - tác vụ đọc có thể không hoàn thành trước khi hàm return.
 		NULL pointer thì nó sẽ tự trỏ đến hàm read.
 	*/
 </p>
+<br/>
 <p><code>ssize_t (*write) (struct file*, const char __user *, size_t, loff_t *);</code>
 	/*
 		Hàm này tương tự hàm read.
 	*/
 </p>
+<br/>
 <p><code>ssize_t (*aio_write) (struct kiocb *, const char __user *, size_t, loff_t *);</code>
 	/*
 		Hàm này tương tự hàm aio_read
 		Cả hai hàm write đều sử dụng const char => tránh sửa đổi dữ liệu truyền vào.
 	*/
 </p>
+<br/>
 <p><code>int (*readdir) (struct file *, void *, filldir_t);</code>
 	/*
 		Để đọc các thư mục. tốt nhất là bỏ qua nó
 	*/
 </p>
+<br/>
 <p><code>unsigned int (*pool)(struct file *, struct poll_table_struct *);</code>
 	/*
 		Đây là backend của 3 system call: poll, epoll và select
 		--Tạm thời ignore, vì chưa tìm hiểu =))
 	*/
 </p>
+<br/>
 <p><code>unsigned int (*ioctl) (struct inode *, struct file *, unsigned int, usigned long);</code>
 	/*
 		ioctl system call cung cấp một phương thức để tạo ra các câu lệnh cho các device cụ thể.
 		Nếu ioctl không được implement thì sẽ báo lỗi "No such ioctl for device".
 	*/
 </p>
+<br/>
 <p><code>int (*mmap) (struct file*, struct vm_area_struct *);</code>
 	/*
 		mmap được sử dụng để mapping device memory tới không gian bộ nhớ của process.
 	*/
 </p>
+<br/>
 <p><code>int (*open) (struct file*, struct file *);</code>
 	/*
 		- Đây là tác vụ được thực hiện đầu tiên của device file.
@@ -127,6 +137,7 @@ Sau đây là danh sách các trường của ```struct file_operations```
 		- Nếu không có thì return value luôn là true.
 	*/
 </p>
+<br/>
 <p><code>int (*flush) (struct file *);</code>
 	/*
 		- được gọi khi một process đóng file descriptor (chỉ là bản copy thôi), nó sẽ thực thi và đợi các tác vụ chưa giải quyết xong trên device.
@@ -134,65 +145,77 @@ Sau đây là danh sách các trường của ```struct file_operations```
 		- Nếu NULL thì kernel sẽ bỏ qua request từ user space.
 	*/
 </p>
+<br/>
 <p><code>int (*release) (struct inode *, struct file *);</code>
 	/*
 		Có open thì phải có release thôi.
 	*/
 </p>
+<br/>
 <p><code>int (*fsync) (struct file *, struct dentry *, int);</code>
 	/*
 		Flush any pending data.
 		NULL -> -EINVAL
 	*/
 </p>
+<br/>
 <p><code>int (*aio_fsync) (struct kiocb *, int);</code>
 	/*
 		fsync khÔng đồng bộ
 	*/
 </p>
+<br/>
 <p><code>int (*fasync) (int, struct file *, int);</code>
 	/*
 		- ?????????????????????????????
 	*/
 </p>
+<br/>
 <p><code>int (*lock) (struct file*, int, struct file_lock *);</code>
 	/*
 		- Được sử dụng để lock file, thường thì không được thực hiện bởi ldd.
 	*/
 </p>
-<p><code>ssize_t (*readv) (struct file*, const struct iovec*, unsigned long, loff_t *);</code></p>
+<br/>
+<p><code>ssize_t (*readv) (struct file*, const struct iovec*, unsigned long, loff_t *);</code></p><br/>
 <p><code>ssize_t (*write) (struct file*, const struct iovec*, unsigned long, loff_t *);</code>
 	/*
 		- pending
 	*/
 </p>
+<br/>
 <p><code>ssize_t (*sendfile) (struct file*, loff_t, size_t, read_actor_t, void *);</code>
 	/*
 		- Được sử dụng bởi sendfile system call.
 		- Di chuyển dữ liệu từ một file descriptor tới một file descriptor khác với khối lượng copy nhỏ nhất. (tức là chỉ có gắng gửi những thứ đã bị thay đổi?).
 	*/
 </p>
+<br/>
 <p><code>ssize_t (*sendpage) (struct file*, struct page *, int, size_t, loff_t *, int);</code>
 	/*
 		sendpage giống sendfile, nhưng chỉ send từng page chứ không phải là cả file.
 		Thông thường không mấy ai implement hàm này.
 	*/
 </p>
+<br/>
 <p><code>unsigned log (*get_unmmapped_area) (struct file *, unsigned long, unsigned long, unsigned long, unsigned long);</code>
 	/*
 		- pending
 	*/
 </p>
+<br/>
 <p><code>int (*check_floags) (int);</code>
 	/*
 		- CHo phép một module kiểm tra các cờ đã được truyền vào fcntl();
 	*/
 </p>
+<br/>
 <p><code>int (*dir_notify) (struct file*, unsigned long);</code>
 	/*
 		directory change notification.
 	*/
 </p>
+<br/>
 </div>
 ### 2.2. File Struct - filp
 Where is it? => linux/fs.h
