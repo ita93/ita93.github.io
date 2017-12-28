@@ -277,6 +277,7 @@ File struct đại diện cho một open file (file đang mở). (mọi open fil
 <div>
 Thời gian học đại học ở VNU, về cơ bản các môn lập trình cơ bản đều có một bài tập dạng quản lý sinh viên, hoặc tương tự.
 Bây giờ mình sẽ viết một chương trình quản lý sinh viên như thế bằng char dev. Thông tin của mỗi sinh viên sẽ bao gồm: họ tên và ngày sinh. Các thông tin này được lưu giữ trong một struct như sau
+</div>
 	```java
 	typedef struct{
 		char* firstName;
@@ -286,4 +287,3 @@ Bây giờ mình sẽ viết một chương trình quản lý sinh viên như th
 		int month;	
 	}Student;
 	```
-</div>
