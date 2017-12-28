@@ -58,6 +58,7 @@ Mỗi trường trong file operation structure phải trỏ đến một functio
 Sau đây là danh sách các trường của ```struct file_operations```
 
 <div style="background-color: lightblue;">
+<p class="text-uppercase">FPI Warning: It's boring</p>
 <pre>
 struct module *owner;
 	/*
@@ -193,4 +194,54 @@ int (*dir_notify) (struct file*, unsigned long);
 	*/
 </pre>
 </div>
-	
+### 2.2. File Struct - filp
+Where is it? => linux/fs.h
+File struct đại diện cho một open file (file đang mở). (mọi open file trong hệ thống đều có một struct file tương ứng trong kernel space). Thời gian tồn tại của nó là từ lúc open() call đến lúc close() call, trong suốt thời gian đó, nó được truyển cho mọi function có thao tác trên file.
+ Sau đây là những trường quan trọng nhất của cấu trúc này.
+
+ mode_t f_mode;
+ 	/*
+ 		FMODE_READ|FMODE_WRITE - readable|writeable.
+ 	*/
+
+ loff_t fpos;
+ 	/*
+ 		- VỊ trí đọc/ghi hiện tại. 
+ 		- Driver có thể kiểm tra giá trị của fpos, nhưng không nên thay đổi nó một cách thông thường, thay vào đó, nó được thay đổi bởi read() và write()
+ 	*/
+
+ unsiged int f_flags;
+ 	/*
+ 		File flags: O_RDONLY, O_NONBLOCK, O_SYNC.
+ 		Các flag này được định nghĩa trong <linux/fcntl.h>
+ 	*/
+
+ struct file_operation *f_op;
+ 	/*
+ 		- Các tác vụ gắn với file.
+ 		- Do kernel không lưu lại f_op cho các lần tham chiếu sau đấy, nên chúng ta có thể thay đổi file_operation gắn với file bất cứ lúc nào và điều này sẽ gây ảnh hưởng ngay lập tức.
+ 	*/
+
+ void *private_data;
+ 	/*
+ 		- Trước khi gọi system call open(), đây là một con trỏ NULL.
+ 		- Có thể dùng hoặc không dùng đều được.
+ 		- Dùng để lưu giữ các thông tin cố định thông suốt quá trình sử dụng của device.
+ 		- Cần giải phóng ở hàm release()
+ 	*/
+ struct dentry *f_dentry;
+ 	/*
+ 		- Directory entry gắn với file.
+ 	*/
+
+### 2.2. inode struct
+	- Kernel dùng inode để đại diện cho các file. Lưu ý rằng struct file là đại diện cho descriptor của các file đang mở (fd), do đó với mỗi file trong hệ thống, có thể có nhiều fd nhưng chỉ có duy nhát một inode.
+	- Chứa các thông tin hữu ích về file:
+	dev_t i_rdev;
+		/*
+			Chứa device number;
+		*/
+	struct cdev *i_cdev;
+		/*
+			cdev là cấu trúc biểu diễn char devices;
+		*/
