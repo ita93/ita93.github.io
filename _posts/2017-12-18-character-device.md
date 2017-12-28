@@ -57,10 +57,10 @@ file operation structure giúp kết nối các tác vụ của driver với cá
 Mỗi trường trong file operation structure phải trỏ đến một function được định nghĩa bởi driver, function này thực hiện một tác vụ cụ thể. Nếu một trường nào đó là NULL thì có nghĩa là tác vụ đấy không được hỗ trợ. Mỗi tác vụ này sẽ có các hàm system call tương ứng để có thể gọi đến từ user space.
 Sau đây là danh sách các trường của ```struct file_operations```
 
-<div style="background-color: lightblue;">
+<div style="background-color: green;">
 <p class="text-uppercase">FPI Warning: It's boring</p>
 
-<p><code>struct module *owner;</code>
+<p style="background-color: lightblue;"><code>struct module *owner;</code>
 	/*
 		Đây là trường đầu tiên của fops struct, nó không phải là một tác vụ mà là một con trỏ trỏ đến module sử hữu structure này. 
 		Tác dụng: Ngăn chặn việc unload module khi các tác vụ của nó chưa hoàn thành.
@@ -68,7 +68,7 @@ Sau đây là danh sách các trường của ```struct file_operations```
 	*/
 </p>
 <br/>
-<p><code>loff_t (*llseek) (struct file *, loff_t, int);</code>
+<p style="background-color: lightblue;"><code>loff_t (*llseek) (struct file *, loff_t, int);</code>
 	/*
 		Được sử dụng để thay đổi vị trí đọc/ghi hiện tại ở trong file. (seek/fseek function in C)
 		Return value: vị trí vừa mới chuyển tới, hoạc giá trị âm nếu thao tác lỗi.
@@ -76,7 +76,7 @@ Sau đây là danh sách các trường của ```struct file_operations```
 	*/
 </p>
 <br/>
-<p><code>ssize_t (*read) (struct file *, char __user *, size_t, loff_t *);</code>
+<p style="background-color: lightblue;"><code>ssize_t (*read) (struct file *, char __user *, size_t, loff_t *);</code>
 	/*
 		Được sử dụng để lấy dữ liệu từ device. 
 		Return value: số lượng bytes đã đọc thành công.
@@ -84,53 +84,53 @@ Sau đây là danh sách các trường của ```struct file_operations```
 	*/
 </p>
 <br/>
-<p><code>ssize_t (*aio_read) (struct kiocb *, char __user *, size_t, loff_t *);</code>
+<p style="background-color: lightblue;"><code>ssize_t (*aio_read) (struct kiocb *, char __user *, size_t, loff_t *);</code>
 	/*
 		Đọc không đồng bộ - tác vụ đọc có thể không hoàn thành trước khi hàm return.
 		NULL pointer thì nó sẽ tự trỏ đến hàm read.
 	*/
 </p>
 <br/>
-<p><code>ssize_t (*write) (struct file*, const char __user *, size_t, loff_t *);</code>
+<p style="background-color: lightblue;"><code>ssize_t (*write) (struct file*, const char __user *, size_t, loff_t *);</code>
 	/*
 		Hàm này tương tự hàm read.
 	*/
 </p>
 <br/>
-<p><code>ssize_t (*aio_write) (struct kiocb *, const char __user *, size_t, loff_t *);</code>
+<p style="background-color: lightblue;"><code>ssize_t (*aio_write) (struct kiocb *, const char __user *, size_t, loff_t *);</code>
 	/*
 		Hàm này tương tự hàm aio_read
 		Cả hai hàm write đều sử dụng const char => tránh sửa đổi dữ liệu truyền vào.
 	*/
 </p>
 <br/>
-<p><code>int (*readdir) (struct file *, void *, filldir_t);</code>
+<p style="background-color: lightblue;"><code>int (*readdir) (struct file *, void *, filldir_t);</code>
 	/*
 		Để đọc các thư mục. tốt nhất là bỏ qua nó
 	*/
 </p>
 <br/>
-<p><code>unsigned int (*pool)(struct file *, struct poll_table_struct *);</code>
+<p style="background-color: lightblue;"><code>unsigned int (*pool)(struct file *, struct poll_table_struct *);</code>
 	/*
 		Đây là backend của 3 system call: poll, epoll và select
 		--Tạm thời ignore, vì chưa tìm hiểu =))
 	*/
 </p>
 <br/>
-<p><code>unsigned int (*ioctl) (struct inode *, struct file *, unsigned int, usigned long);</code>
+<p style="background-color: lightblue;"><code>unsigned int (*ioctl) (struct inode *, struct file *, unsigned int, usigned long);</code>
 	/*
 		ioctl system call cung cấp một phương thức để tạo ra các câu lệnh cho các device cụ thể.
 		Nếu ioctl không được implement thì sẽ báo lỗi "No such ioctl for device".
 	*/
 </p>
 <br/>
-<p><code>int (*mmap) (struct file*, struct vm_area_struct *);</code>
+<p style="background-color: lightblue;"><code>int (*mmap) (struct file*, struct vm_area_struct *);</code>
 	/*
 		mmap được sử dụng để mapping device memory tới không gian bộ nhớ của process.
 	*/
 </p>
 <br/>
-<p><code>int (*open) (struct file*, struct file *);</code>
+<p style="background-color: lightblue;"><code>int (*open) (struct file*, struct file *);</code>
 	/*
 		- Đây là tác vụ được thực hiện đầu tiên của device file.
 		- Có thể có hoặc không.
@@ -138,7 +138,7 @@ Sau đây là danh sách các trường của ```struct file_operations```
 	*/
 </p>
 <br/>
-<p><code>int (*flush) (struct file *);</code>
+<p style="background-color: lightblue;"><code>int (*flush) (struct file *);</code>
 	/*
 		- được gọi khi một process đóng file descriptor (chỉ là bản copy thôi), nó sẽ thực thi và đợi các tác vụ chưa giải quyết xong trên device.
 		- Hiếm khi được sử dụng.
@@ -146,76 +146,76 @@ Sau đây là danh sách các trường của ```struct file_operations```
 	*/
 </p>
 <br/>
-<p><code>int (*release) (struct inode *, struct file *);</code>
+<p style="background-color: lightblue;"><code>int (*release) (struct inode *, struct file *);</code>
 	/*
 		Có open thì phải có release thôi.
 	*/
 </p>
 <br/>
-<p><code>int (*fsync) (struct file *, struct dentry *, int);</code>
+<p style="background-color: lightblue;"><code>int (*fsync) (struct file *, struct dentry *, int);</code>
 	/*
 		Flush any pending data.
 		NULL -> -EINVAL
 	*/
 </p>
 <br/>
-<p><code>int (*aio_fsync) (struct kiocb *, int);</code>
+<p style="background-color: lightblue;"><code>int (*aio_fsync) (struct kiocb *, int);</code>
 	/*
 		fsync khÔng đồng bộ
 	*/
 </p>
 <br/>
-<p><code>int (*fasync) (int, struct file *, int);</code>
+<p style="background-color: lightblue;"><code>int (*fasync) (int, struct file *, int);</code>
 	/*
 		- ?????????????????????????????
 	*/
 </p>
 <br/>
-<p><code>int (*lock) (struct file*, int, struct file_lock *);</code>
+<p style="background-color: lightblue;"><code>int (*lock) (struct file*, int, struct file_lock *);</code>
 	/*
 		- Được sử dụng để lock file, thường thì không được thực hiện bởi ldd.
 	*/
 </p>
 <br/>
-<p><code>ssize_t (*readv) (struct file*, const struct iovec*, unsigned long, loff_t *);</code></p><br/>
-<p><code>ssize_t (*write) (struct file*, const struct iovec*, unsigned long, loff_t *);</code>
+<p style="background-color: lightblue;"><code>ssize_t (*readv) (struct file*, const struct iovec*, unsigned long, loff_t *);</code></p><br/>
+<p style="background-color: lightblue;"><code>ssize_t (*write) (struct file*, const struct iovec*, unsigned long, loff_t *);</code>
 	/*
 		- pending
 	*/
 </p>
 <br/>
-<p><code>ssize_t (*sendfile) (struct file*, loff_t, size_t, read_actor_t, void *);</code>
+<p style="background-color: lightblue;"><code>ssize_t (*sendfile) (struct file*, loff_t, size_t, read_actor_t, void *);</code>
 	/*
 		- Được sử dụng bởi sendfile system call.
 		- Di chuyển dữ liệu từ một file descriptor tới một file descriptor khác với khối lượng copy nhỏ nhất. (tức là chỉ có gắng gửi những thứ đã bị thay đổi?).
 	*/
 </p>
 <br/>
-<p><code>ssize_t (*sendpage) (struct file*, struct page *, int, size_t, loff_t *, int);</code>
+<p style="background-color: lightblue;"><code>ssize_t (*sendpage) (struct file*, struct page *, int, size_t, loff_t *, int);</code>
 	/*
 		sendpage giống sendfile, nhưng chỉ send từng page chứ không phải là cả file.
 		Thông thường không mấy ai implement hàm này.
 	*/
 </p>
 <br/>
-<p><code>unsigned log (*get_unmmapped_area) (struct file *, unsigned long, unsigned long, unsigned long, unsigned long);</code>
+<p style="background-color: lightblue;"><code>unsigned log (*get_unmmapped_area) (struct file *, unsigned long, unsigned long, unsigned long, unsigned long);</code>
 	/*
 		- pending
 	*/
 </p>
 <br/>
-<p><code>int (*check_floags) (int);</code>
+<p style="background-color: lightblue;"><code>int (*check_floags) (int);</code>
 	/*
 		- CHo phép một module kiểm tra các cờ đã được truyền vào fcntl();
 	*/
 </p>
 <br/>
-<p><code>int (*dir_notify) (struct file*, unsigned long);</code>
+<p style="background-color: lightblue;"><code>int (*dir_notify) (struct file*, unsigned long);</code>
 	/*
 		directory change notification.
 	*/
 </p>
-<br/>
+
 </div>
 ### 2.2. File Struct - filp
 Where is it? => linux/fs.h
