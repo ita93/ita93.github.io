@@ -58,6 +58,7 @@ Mỗi trường trong file operation structure phải trỏ đến một functio
 Sau đây là danh sách các trường của ```struct file_operations```
 
 <div style="background-color: lightblue;">
+<pre>
 struct module *owner;
 	/*
 		Đây là trường đầu tiên của fops struct, nó không phải là một tác vụ mà là một con trỏ trỏ đến module sử hữu structure này. 
@@ -190,5 +191,6 @@ int (*dir_notify) (struct file*, unsigned long);
 	/*
 		directory change notification.
 	*/
+</pre>
 </div>
 	
