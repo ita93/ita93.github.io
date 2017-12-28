@@ -285,5 +285,5 @@ Bây giờ mình sẽ viết một chương trình quản lý sinh viên như th
 		int day;
 		int month;	
 	}Student;
- </pre><code>
+ </pre></code>
 </div>
