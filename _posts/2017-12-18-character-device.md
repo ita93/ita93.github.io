@@ -275,15 +275,51 @@ File struct đại diện cho một open file (file đang mở). (mọi open fil
 
 ## 3. Thử lập trình một Character device driver
 <div>
-Thời gian học đại học ở VNU, về cơ bản các môn lập trình cơ bản đều có một bài tập dạng quản lý sinh viên, hoặc tương tự.
-Bây giờ mình sẽ viết một chương trình quản lý sinh viên như thế bằng char dev. Thông tin của mỗi sinh viên sẽ bao gồm: họ tên và ngày sinh. Các thông tin này được lưu giữ trong một struct như sau
- <pre><code>
-	typedef struct{
-		char* firstName;
-		char* lastName;
-		int year;
-		int day;
-		int month;	
-	}Student;
-</code></pre>
+Bây giờ mình sẽ thử tạo một character device driver đơn giản tên là <i>scull</i>, ví dụ này được lấy từ <a href="https://lwn.net/Kernel/LDD3/">Linux Device Driver(ldd3)</a>.
+
+Device driver này hoạt động như một buffer, nó không làm gì khác ngoài việc quản lý các phần bộ nhớ mà bạn có thể đọc hoặc ghi lên đấy. Bộ nhớ được quản lý bằng cách cấu trúc thành một danh sách liên kết, mỗi node là một scull_qset, mỗi scull_qset lưu giữ một vùng dữ liệu và một con trỏ tới qset tiếp theo. Vùng dữ liệu ở đây là một bảng các phần tử (quantums). Trong mỗi bảng này có SCULL_NUM_QUANTUM phần tử, mỗi cái có kích thước SCULL_QUANTUM_SIZE bytes.
+Ngoài ra, ở đây còn sử dụng một struct là scull_dev, chứa các thông tin mà device cần đến.
+
+### 3.1 Khai báo các cấu trúc dữ liệu cần thiết.
+#### a, Structure qset
+<code>
+	struct scull_qset{
+		void **data; /data region
+		struct scull_qset *next; //next qset
+	}
+</code>
+#### b, Structure scull_dev
+<code>
+	struct scull_dev{
+		struct scull_qset *data; 	//Pointer to the first qset.
+		struct quantum;				//Current size of each quamtum.
+		int qset; 					//Number of qset?
+		unsigned long size;			//Amount of data store here.
+		unsigned int access_key;
+		struct semaphore sem;		//Semaphore
+		struct cdev cdev;			//Cdev struct
+	}
+</code>
+### 3.2 Đăng ký device driver với kernel.
+	Kernel sử dụng <span style="color:blue">struct cdev</span> để đại diện cho các character device. Để kernel có thể thực thi các
+	tác vụ có trong driver, chúng ta cần đăng ký struct này với kernel.
+	<span style="color:blue">struct cdev</span> nằm trong header <span style="color:blue">linux/cdev.h</span>
+	<div>
+		Có hai cách để đăng ký driver với kernel. Đầu tiên, trong trường hợp chỉ muốn đăng ký duy nhất <span style="color:blue">struct cdev</span>
+		thì có thể dùng:
+			<code>
+				struct cdev *my_cdev = cdev_alloc(); <br/>
+				my_cdev->ops = &my_fops; <br/>
+			</code>
+	</div>
+	<div>
+		Trường hợp thứ 2, chúng ta muốn device driver có một cấu trúc dữ liệu riêng để lưu giữ các thông tin của chardev, trong đó
+		có chứa cả <span style="color:blue">struct cdev</span>, thì chúng ta sẽ sử dụng cách sau:
+			<code>
+				void cdev_init(struct cdev *dev, struct file_operations *fops);
+			</code>
+			<code>
+				int cdev_add(struct cdev *dev, dev_t num, unsigned int count);
+			</code>
+	</div>
 </div>
