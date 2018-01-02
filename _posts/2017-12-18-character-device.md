@@ -306,8 +306,8 @@ Ngoài ra, ở đây còn sử dụng một struct là scull_dev, chứa các th
 	<span style="color:blue">struct cdev</span> nằm trong header <span style="color:blue">linux/cdev.h</span>
 	<div>
 		Có hai cách để đăng ký driver với kernel. Đầu tiên, trong trường hợp chỉ muốn đăng ký duy nhất <span style="color:blue">struct cdev</span>
-		thì có thể dùng:
-			<code>
+		thì có thể dùng:<br/>
+			<code style="padding-left: 10em">
 				struct cdev *my_cdev = cdev_alloc(); <br/>
 				my_cdev->ops = &my_fops; <br/>
 			</code>
