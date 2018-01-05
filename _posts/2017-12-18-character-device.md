@@ -1,4 +1,4 @@
-# Character Device Driver.
+# Character Device Driver(DRAFT Ver).
 
 Character Device (chardev) là các device được truy cập như một luồng nhị phân (byte stream - tương tự như các file trong máy tính), và character device
 driver có nhiệm vụ thực hiện những thao tác đọc ghi này. Đối với một character device driver, ít nhất 4 system call: open, close read và write cần được implement để chardev có thể hoạt động một cách bình thường. 
@@ -307,7 +307,7 @@ tác vụ có trong driver, chúng ta cần đăng ký struct này với kernel.
 <div>
 	Có hai cách để đăng ký driver với kernel. Đầu tiên, trong trường hợp chỉ muốn đăng ký duy nhất <span style="color:blue">struct cdev</span>
 	thì có thể dùng:<br/>
-		<code style="padding-left: 10em">
+		<code>
 			struct cdev *my_cdev = cdev_alloc(); <br/>
 			my_cdev->ops = &my_fops; <br/>
 		</code>
@@ -319,6 +319,170 @@ tác vụ có trong driver, chúng ta cần đăng ký struct này với kernel.
 			void cdev_init(struct cdev *dev, struct file_operations *fops); <br/>
 			int cdev_add(struct cdev *dev, dev_t num, unsigned int count); <br/>
 		</code>
-	Đây là cách mà scull driver sử dụng. 
+	Đây là cách mà scull driver sử dụng. <br/>
+	Giải thích các tham số:<br/>
+	- <span style="color: blue">struct cdev *dev</span> : Đây là cấu trúc cdev đại diện của chardev.
+	- <span style="color: blue">struct file_operations *fops</span> : Cấu trúc này chứa các function pointer đến các hàm thực hiện các tác vụ của chardev.
+	- Hàm <span style="color: blue">int cdev_add</span> đăng ký chardev với kernel với <span style="color: blue">dev_t num</span> là device number đầu tiên, còn <span style="color: blue">int count</span> là số lượng device number sẽ liên kết với device. Hàm này trả về 0 nếu thành công và ngược lại.
 </div>
+<div>
+	<p>scull driver khởi tạo và thêm cấu trúc cdev của nó vào hệ thống bằng cách sau:</p>
+	<code>
+		static void scull_setup_dev(struct scull_dev *dev, int index)
+		{
+			int err, devno = MKDEV(scull_major, scull_minor + index);
+			cdev_init(&dev->cdev, &scull_fops);
+			dev->cdev.owner = THIS_MODULE;
+			dev->cdev.ops = &scull_fops;
+			err = cdev_add(&dev->cdev, devno, 1);
+			if(err)
+				printk(KERN_NOTICE "Error %d adding scull%d",err,index);
+		}
+	}
+	</code>
+</div>
+### 3.3 Các hàm của cấu trúc file_operations
+#### a. open and release
+<div>
+open(): thực hiện các khởi tạo cơ bản để giúp các tác vụ khác có thể hoạt động sau đó.
+Thông thường, hàm open() sẽ thực hiện các nhiệm vụ sau:
+- Kiểm tra xem device đã sẵn sàng chưa? Hardware có vấn đề gì không?....
+- Khởi tạo device nếu nó được mở lần đầu.
+- Cập nhật f_op nếu cần tiếp.
+- Cấp phát và gán các thông tin cần thiết vào filp->private_data.
 
+Tuy nhiên, Mục tiêu hàng đầu là xác định xem device nào sẽ được mở (tức là cái file device nào ấy). 
+</div>
+```
+int scull_open(struct inode *inode, struct file *filp)
+{
+	struct scull_dev *dev; 
+	dev = container_of(inode->i_cdev, struct scull_dev, cdev);
+	filp->private_data = dev;
+
+	if((filp->f_flags & O_ACCMODE) == O_WRONLY)
+	{
+		scull_trim(dev);
+	}
+	return 0;
+}
+```
+
+release(): Hàm này dùng để phá hoại hết những gì đã làm trong hàm open. Đầu tiên là phải thu deallocate filp->private_data. Poweroff device trong lần dùng cuối. trong scull hàm này không làm gì cả vì không có gì để giải phóng hay power off hết.
+Trong kernel, có một counter dùng để đếm xem một <i>file</i> structure có bao nhiêu đối tượng đang sử dụng nó. Khi counter bằng này có giá trị bằng 0 thì đó được xem là lần sử dụng cuối của device và nó sẽ bị poweroff. Ngoài ra counter cũng đảm bảo là mỗi lời gọi đến open() sẽ chỉ có một lời gọi đến release() đi kèm (tránh release 1 file 2 lần).
+
+#### b. read and write
+
+```ssize_t read(struct file *filp, char __user *buff, ssize_t count, loff_t *offp);```
+```ssize_t write(struct file *filp, const char __user *buff, ssize_t count, loff_t *offp);```
+Hàm này sẽ gửi một buffer có kích thước count bytes tới app space bắt đầu tự vị trí offp của file.
+Do buff là user-space pointer nên nó không thể được truy vấn một cách trực tiếp từ kernel code, sau đây là một số hạn chế:
+- Phụ thuộc vào arch của hệ thống và configuration của kernel, user-space pointer có thể là không hợp lệ đối với kernel mode. (Do kernel memory là direct mapping, trong khi ở user-space không phải là direct mapping nên cùng một địa chỉ nhưng vị trí sẽ khác nhau).
+- User-mem được paged (paging) nên nó không tồn tại lâu dài trong RAM. Việc tham chiếu đến user-space mem một cách trực tiếp sẽ gây ra page fault (không phải lúc nào cũng xảy ra nhưng xác suất cao) kể cả nếu pointer trong kernel-space và user-space có cách mapping giống nhau.
+- Về vấn đề bảo mật, việc tham chiếu trực tiếp đến pointer của user-space cũng không tốt vì nó tạo ra risk cao. 
+
+Mặc dù có những hạn chế ở trên, nhưng rõ ràng là chúng ta vẫn cần truy cập đến user-space buffer để hoàn thành việc read(và cả write) của ldd. Kernel cung cấp cho ta các hàm để thực hiện điều này một cách an toàn (thank torvalds). Những hàm này được định nghĩa trong header <span style="color: red">asm/uaccess.h</span>. Những hàm này đã sử dụng ma thuật hắc ám của kẻ mà ai cũng biệt là ai để truyền dữ liệu giữa kernel và user space một cách an toàn và im lặng. Trong phần read(), write() chúng ta cần đến phép thuật sau:
+```usigned long copy_to_user(void __user *to, const void *from, usinged long count);```
+```usigned long copy_from_user(void __user *to, const void __user *from, usinged long count);```
+Lưu ý là do user-space sử dụng cơ chế paging/swapping nên tại thời điểm bất kỳ, có thể page cần dùng để copy/send data không nằm trong bộ nhớ, do đó cần có thời gian để transfer các page này vào mem, điều này đồng nghĩ với việc các hàm read/write phải sleepable ở đây, nên các hàm này sẽ thực hiện một cách concurrently với các hàm khác của driver. 
+Hai hàm này không phải là atomic, tức là nó sẽ kiểm tra xem user-space pointer có hợp lệ hay không. Nếu không, việc copy sẽ không được thực hiện, nếu có nó sẽ thực hiện, nhưng giả dụ trong lúc đang copy nó phát hiện ra một địa chỉ không hợp lệ, quá trình copy sẽ bị break và phần data chưa copy sẽ không được xử lý, phần đã copy thì vẫn giữ nguyên. Giá trị trả về của các hàm này đều là lượng data đã copy (bytes).
+
+- Cần update *offp sau khi thực hiện read/write để đảm bảo rằng vị trí hiện tại là đúng.
+- Nếu thao tác đọc/ghi không thành công thì giá trị trả về là 1 số ÂM.
+b1. read()
+Với mỗi giá trị trả về của hàm read(), có một tác động tương ứng lên chương trình (app space) có lời gọi hàm đến nó.
+- Nếu giá trị trả về bằng với count thì toàn bộ dữ liệu yêu cầu đã được truyền thành công. Đây là trường hợp tối ưu.
+- Nếu giá trị là dương, nhưng nhỏ hơn count, chỉ một phần của dữ liệu đã được truyền thành công. Điều này có thể xảy ra do một số thế lực hắc ám phụ thuộc vào pháp sư sử dụng nó (device). Trường hợp này thường xảy ra khi user-space program gọi đến read().
+- Nếu giá trị là 0 thì không có data để truyền đi nữa (chakra cạn kiệt).
+- Nếu giá trị trả về là 0, thì tức là nó đã bị phong ấn ở đâu đấy.
+- Trường hợp cá biệt, chakra vẫn còn nhưng bị bakugan phong tỏa huyệt đạo, shinobi sẽ rơi vào trang thái block.
+Sau đây là source code hàm read của scull
+```ssize_t scull_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
+{
+	struct scull_dev *dev = filp->private_data;
+	struct scull_qset *dptr;
+	int quantum = dev->quantum, qset = dev->qset;
+	int itemsize = quantum*qset;
+	int item, s_pos, q_pos, rest;
+	if (*f_pos >= dev->size)
+		goto out;								//Nếu f_pos vượt quá kích thước device size tức là end-of-file thì return
+	if (*f_pos + count > dev->size)
+		count = dev->size -*f_pos;				//truncate buf size thành kích thước còn lại của device size.
+	item = (long)*f_pos / itemsize;				//vị trí của q_set cần đọc.
+	rest = (long)*f_pos % itemsize;				//vị trí của quantum trong q_set đó
+	s_pos = rest/quantum; 						//Đây là index 1 trong **data của qset
+	q_pos = rest % quantum;						//Đây là vị trí của byte trong **data;
+	dptr = scull_follow(dev, item); 			//traveling linked list.
+
+	if(dptr == NULL || !dptr->data || !dptr->data[s_pos])
+		goto out;
+
+	if (count>quantum - q_pos)
+		count = quantum - q_pos;
+	if(copy_to_user(buf, dptr->data[s_pos]+q_pos,count))
+	{
+		retval = -EFAULT;
+		goto out;
+	}
+
+	*f_pos += count;
+	retval = count;
+	out:
+		up(&dev->sem);
+		return retval;
+}```
+
+b2. write()
+giống read, write có thể truyền ít hơn dữ liệu được yêu cầu, sau đây là các giá trị trả về ở user-space calling tương ứng.
+- Nếu giá trị trả về bằng count thì toàn bộ các bytes được yêu cầu đã truyền thành công.
+- Nếu giá trị trả về là giá trị dương lớn hơn count, thì chỉ một phần chakra được truyền từ cửu vĩ sang naruto. Chương trình (user-space) gần như ngay lập tức cố gắng write phần data còn lại.
+- Nếu giá trị trả về là 0 thì tức là không có ghì để write.
+- Nếu giá trị trả về là âm thì đã có lỗi.
+
+```
+ssize_t scull_write(struct file *filp, const char __user *buf, size_t count, loff_t *f_pos)
+{
+	struct scull_dev *dev = filp->private_data;
+	struct scull_qset *dptr;
+	int quantum = dev->quantum, qset=dev->qset;
+	int itemsize = quantum * qset;
+	int item, s_pos, q_pos, rest;
+	ssize_t retval = -ENOMEM; 
+
+	item = (long)*f_pos/itemsize;
+	rest = (long)*f_pos%itemsize;
+	s_pos = rest/quantum; q_pos=rest%quantum;
+
+	dptr = scull_follow(dev, item);
+	if(dptr == NULL)
+		goto out;
+	if(!dptr->data)
+	{
+		dptr->data = kmalloc(qset * sizeof(char *), GFP_KERNEL);
+		if(!dptr->data)
+			goto out;
+		memset(dptr->data, 0, q_set * sizeof(char *));
+	}
+
+	if(!dptr->data[s_pos]){
+		dptr->data[s_pos] = kmalloc(quantum, GFP_KERNEL)
+		if(!dptr->data[s_pos])
+			goto out;
+	}
+
+	if(count > quantum - q_pos)
+		count = quantum - q_pos;
+	if(copy_from_user(dptr->data[s_pos]+q_pos, buf, count))
+	{
+		retval = -EFAULT;
+		goto out;
+	}
+	*f_pos+=count;
+	retval = count;
+
+	if(dev->size < *f_pos)
+		dev->size = *f_pos;
+	out:
+		up(&dev->sem);
+		return retval;
+}
