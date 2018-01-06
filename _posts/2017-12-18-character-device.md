@@ -485,4 +485,4 @@ ssize_t scull_write(struct file *filp, const char __user *buf, size_t count, lof
 	out:
 		up(&dev->sem);
 		return retval;
-}
+}```
