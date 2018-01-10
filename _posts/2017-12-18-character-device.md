@@ -236,7 +236,7 @@ File struct đại diện cho một open file (file đang mở). (mọi open fil
 <code>unsiged int f_flags;</code>
  	/*
  		File flags: O_RDONLY, O_NONBLOCK, O_SYNC.
- 		Các flag này được định nghĩa trong <linux/fcntl.h>
+ 		Các flag này được định nghĩa trong linux/fcntl.h
  	*/
 
 <code> struct file_operation *f_op;</code>
