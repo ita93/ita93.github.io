@@ -27,3 +27,24 @@ Nếu tác vụ bị ngắt, thì <code>down_interruptible</code> trả về m�
 Một khi thread đã gọi thành công một trong các version của <code>down</code> thì nó được gọi là holding thread của semaphore đó. Bây giờ thread này có toàn quyền với semaphore. Do đó nó cần giải phóng semaphore cho các thread khác sau khi hoàn thành công việc trong miền găng.<br/>
 <code>up(struct semaphore *sem);</code><br/>
 Sau khi up() được gọi thì caller thread không còn hold semaphore nữa.<br/>
+
+## 2. Completions
+	Một trong các pattern phổ biến trong kernel programming là khởi tạo một số activity bên ngoài current thread, sau đó đợi đến khi activity đó hoàn thành. Activity này có thể là tạo một kernel thread hoặc một user-space process mới, một request đến một process đã tồn tại, hoặc một số hardware-based action.
+	Ví dụ:
+	<code>
+		struct semaphore sem;<br/>
+		init_MUTEX_LOCKED(&sem);<br/>
+		start_external_task(&sem);<br/>
+		down(&sem);
+	</code>
+	(Code trên sẽ làm giảm performance)
+	external_task sau đó có thể gọi up(&sem) khi công việc của nó hoàn thành. 
+	completion interface được dùng trong trường hợp này. Nó cho phép một thread có thể thông báo với một thread khác rằng nó đã hoàn thành công việc.
+	file header: <code>linix/completion.h</code><br/>
+
+	Tạo một completion bằng macro: <code>DECLARE_COMPLETION(my_completion);</code><br/>
+	Trường hợp cần khởi tạo ở runtime:
+	<code>
+	struct comletion my_completion;<br/>
+	struct init_completion(&my_completion);<br/>
+	</code>
