@@ -29,32 +29,30 @@ Một khi thread đã gọi thành công một trong các version của <code>do
 Sau khi up() được gọi thì caller thread không còn hold semaphore nữa.<br/>
 
 ## 2. Completions
-	Một trong các pattern phổ biến trong kernel programming là khởi tạo một số activity bên ngoài current thread, sau đó đợi đến khi activity đó hoàn thành. Activity này có thể là tạo một kernel thread hoặc một user-space process mới, một request đến một process đã tồn tại, hoặc một số hardware-based action.
-	Ví dụ:
-	<code>
-		struct semaphore sem;<br/>
-		init_MUTEX_LOCKED(&sem);<br/>
-		start_external_task(&sem);<br/>
-		down(&sem);
-	</code>
-	(Code trên sẽ làm giảm performance)
-	external_task sau đó có thể gọi up(&sem) khi công việc của nó hoàn thành. 
-	completion interface được dùng trong trường hợp này. Nó cho phép một thread có thể thông báo với một thread khác rằng nó đã hoàn thành công việc.
-	file header: <code>linix/completion.h</code><br/>
-
-	Tạo một completion bằng macro: <code>DECLARE_COMPLETION(my_completion);</code><br/>
-	Trường hợp cần khởi tạo ở runtime:
-	<code>
-	struct comletion my_completion;<br/>
-	struct init_completion(&my_completion);<br/>
-	</code>
-	Sau đấy chúng ta cần báo cho thread biết nó cần đợi completion.<br/>
-	<code>wait_for_completion(struct completion *c);</code><br/>
-	function này tạo ra một uninterruptible wait(tức là chúng ta không thể kill được process cho đến khi cái completion được set là đã hoàn thành).<br/>
-	Thread đang được đợi, sẽ thông báo cho calling thead rằng nó đã hoàn thành công việc bằng cách gọi một trong hai hàm sau:<br/>
-	<code>complete(struct completion *c);</code> Chỉ wake up một thread duy nhất<br/>
-	<code>compelete_all(struct completion *c);</code> Weke up tất cả các thread đang đợi<br/>
-
-	Một completion thường là one-shot device, tức là nó chỉ được dùng 1 lần sau đó sẽ bị discard. Tuy nhiên, việc sử dụng lại một completion là khả dĩ. Nếu complete_all không được sử dụng, thì struct completion có thể được sử dụng lại một cách dễ dàng. Nếu complete_all đã dược gọi, thì completion struct cầ được tái tạo trước khi sử dụng với macro: <br/>
-	<code>INIT_COMPLETION(struct completion c);</code><br/>
-	Appendex: <code>void complete_and_exit(struct completion *c, long retval);</code>
+Một trong các pattern phổ biến trong kernel programming là khởi tạo một số activity bên ngoài current thread, sau đó đợi đến khi activity đó hoànthành. Activity này có thể là tạo một kernel thread hoặc một user-space process mới, một request đến một process đã tồn tại, hoặc một sốhardware-based action.
+Ví dụ:
+<code>
+	struct semaphore sem;<br/>
+	init_MUTEX_LOCKED(&sem);<br/>
+	start_external_task(&sem);<br/>
+	down(&sem);
+</code>
+(Code trên sẽ làm giảm performance)
+external_task sau đó có thể gọi up(&sem) khi công việc của nó hoàn thành. 
+completion interface được dùng trong trường hợp này. Nó cho phép một thread có thể thông báo với một thread khác rằng nó đã hoàn thành công việc.
+file header: <code>linix/completion.h</code><br/>
+Tạo một completion bằng macro: <code>DECLARE_COMPLETION(my_completion);</code><br/>
+Trường hợp cần khởi tạo ở runtime:
+<code>
+struct comletion my_completion;<br/>
+struct init_completion(&my_completion);<br/>
+</code>
+Sau đấy chúng ta cần báo cho thread biết nó cần đợi completion.<br/>
+<code>wait_for_completion(struct completion *c);</code><br/>
+function này tạo ra một uninterruptible wait(tức là chúng ta không thể kill được process cho đến khi cái completion được set là đã hoàn thành).<br/>
+Thread đang được đợi, sẽ thông báo cho calling thead rằng nó đã hoàn thành công việc bằng cách gọi một trong hai hàm sau:<br/>
+<code>complete(struct completion *c);</code> Chỉ wake up một thread duy nhất<br/>
+<code>compelete_all(struct completion *c);</code> Weke up tất cả các thread đang đợi<br/>
+Một completion thường là one-shot device, tức là nó chỉ được dùng 1 lần sau đó sẽ bị discard. Tuy nhiên, việc sử dụng lại một completion là khả dĩ.Nếu complete_all không được sử dụng, thì struct completion có thể được sử dụng lại một cách dễ dàng. Nếu complete_all đã dược gọi, thì completionstruct cầ được tái tạo trước khi sử dụng với macro: <br/>
+<code>INIT_COMPLETION(struct completion c);</code><br/>
+Appendex: <code>void complete_and_exit(struct completion *c, long retval);</code>
