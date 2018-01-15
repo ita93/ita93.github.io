@@ -48,3 +48,13 @@ Sau khi up() được gọi thì caller thread không còn hold semaphore nữa.
 	struct comletion my_completion;<br/>
 	struct init_completion(&my_completion);<br/>
 	</code>
+	Sau đấy chúng ta cần báo cho thread biết nó cần đợi completion.<br/>
+	<code>wait_for_completion(struct completion *c);</code><br/>
+	function này tạo ra một uninterruptible wait(tức là chúng ta không thể kill được process cho đến khi cái completion được set là đã hoàn thành).<br/>
+	Thread đang được đợi, sẽ thông báo cho calling thead rằng nó đã hoàn thành công việc bằng cách gọi một trong hai hàm sau:<br/>
+	<code>complete(struct completion *c);</code> Chỉ wake up một thread duy nhất<br/>
+	<code>compelete_all(struct completion *c);</code> Weke up tất cả các thread đang đợi<br/>
+
+	Một completion thường là one-shot device, tức là nó chỉ được dùng 1 lần sau đó sẽ bị discard. Tuy nhiên, việc sử dụng lại một completion là khả dĩ. Nếu complete_all không được sử dụng, thì struct completion có thể được sử dụng lại một cách dễ dàng. Nếu complete_all đã dược gọi, thì completion struct cầ được tái tạo trước khi sử dụng với macro: <br/>
+	<code>INIT_COMPLETION(struct completion c);</code><br/>
+	Appendex: <code>void complete_and_exit(struct completion *c, long retval);</code>
