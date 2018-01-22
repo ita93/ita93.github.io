@@ -39,13 +39,52 @@ Cũng trong header này, các macros dùng decode numbers được định nghĩ
 Ví dụ về ioctl command number definations:<br/>
 <code>#define ONI_IOCREAD _IOR(ONI_MAGIC_NR,FIRST_SEQ);</code><br/><br/>
 
-#3. Giá trị trả về của ioctl
+## 3. Giá trị trả về của ioctl
 - Nếu command number truyền vào không đúng thì giá trị trả về nên là -EINVAL/-ENOTTY<br/>
 
-#4. Sử dụng argument trong ioctl
+## 4. Sử dụng argument trong ioctl
 -Argument ở đây có thể là integer number hoặc pointer<br/>
 -Nếu argument truyền vào là một pointer thì cần đảm bảo rằng user space address là hợp lệ, nếu không nó có thể gây ra kernel ops... Driver cần kiểm tra tất cả các pointer được truyền vào <br/>
 
+## 5. Ví dụ
+"Không gì tốt hơn thực hành" Một cao nhân dấu tên, dấu cả chân đã nói thế. Sau đây sẽ là một ví dụ về ioctl.<br/>
+Ví dụ này sẽ gồm 2 thành phần: <br/>
+- Device driver : oni_ioctl <br/>
+- User-space app: oni_app <br/>
+Đầu tiên cần tạo ra 1 file header chứa các biến cần thiết để sử dụng.</br>
+<code>oni_ioctl.h</code><br/>
+<pre>
+#ifndef ONI_IOCTL_H
+#define ONI_IOCTL_H
+#include <linux/ioctl.h>
+
+type def struct{
+	int day, month, year;
+}birthday;
+
+//Define 3 command numbers with type (magic number) is 'o', sequen: 1,2,3. Data type query_arg_t
+#define QUERY_GET_VARIABLES _IOR('o',1,birthday *)
+#define QUERY_CLR_VARIABLES _IO('o',2)
+#define QUERY_SET_VARIABLES	_IOW('o',3,birthday *)
+</pre>
+Ở file header, mình đã định nghĩa ra một kiểu mới tên là birthday, là một struct gồm 3 interger number. Đây cũng là argument truyền vào cho các lời gọi ioctl ở phần sau. Sau đấy là 3 <b>command number</b> được sử dụng bởi Oni Ioctl. <br/>
+Tất cả các cmd number đều sử dụng chung một magic number là 'o' (nó sẽ tự đổi ra int), trong lý thuyết thì các cmd number của cùng 1 device không bắt buộc phải có magic number giống nhau, nhưng trên thực tế, việc sử dụng 1 magic number duy nhất sẽ giúp code dễ quản lý, đẹp mắt, ảo lòi hơn. <br/>
+Các cmd number có sequence number lần lượt là 1, 2, 3. Ở cmd number đầu tiên, chúng ta khai báo rằng nó sẽ đọc dữ liệu từ device và sử dụng tham số có kiểu birthday. Ở cmd number thứ 2, chúng ta k dùng tham số. (mấy cái này tượng trưng thôi, có dùng IO hết cũng chả chết, nhưng mà code cleaning is good).<br/>
+File header này sẽ được include ở cả ldd và user-space app. <br/><br/><br/>
+Tiếp theo sẽ là file source cho ldd, mình tạo 1 file mới tên là <code>oni_ioctl.c</code><br/>
+Đầu tiên phải include những header cần thiết vào
+<pre>
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/version.h>
+#include <linux/fs.h>
+#include <linux/cdev.h>
+#include <linux/device.h>
+#include <linux/error.h>
+#include <asm/uaccess.h>
+
+#include "query_ioctl.h"
+</pre>
 
 
 
