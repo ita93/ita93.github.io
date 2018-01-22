@@ -85,7 +85,45 @@ Tiếp theo sẽ là file source cho ldd, mình tạo 1 file mới tên là <cod
 
 #include "query_ioctl.h"
 </pre>
+Tiếp theo chúng ta sẽ define 2 macro cho minor<br/>
+<code>#define FIRST_MINOR 0</code><br/>
+<code>#define MINOR_CNT 1</code><br/>
+ở đây chúng ta sẽ tạo 1 minor duy nhất bắt đầu từ 0.<br/><br/>
+Tiếp theo là khai báo một biến dev_t: biến này sẽ lưu device number cho device sắp tới<br/>
+<code>static dev_t dev;</code><br/><br/>
+Struct cdev (character device) cho device.<br/>
+<code>static struct cdev c_dev;</code><br/><br/>
+Struct class dùng để tạo ra device file trong thư mục /dev/<br/>
+<code>static struct class *c1;</code><br/><br/>
+Đây là các giá trị mặc định ban đầu của day, month, year.<br/>
+<code>static int day = 11, month = 02, year = 1993;</code><br/><br/>
 
+Bây giờ đến file_operations, trước hết chúng ta cần declare các hàm sẽ được refer từ file_operations.
+<pre>
+static int my_open(struct inode *i, struct file *f);
+static int my_close(struct inode *i, struct file *f);
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35))
+static int my_ioctl(struct inode *i, struct file *f, unsigned int cmnd, unsigned long arg);
+#else
+static long my_ioctl(struct file *f, unsigned int cmd, unsigned long arg);
+#endif
+</pre>
+Hàm my_open và my_close không cần thực hiện tác vụ gì cả, nên chúng ta chỉ cần định nghĩa chúng là các hàm có thân hàm rỗng là được.<br/>
+Hàm my_ioctl có có prototype khác nhau, phục thuộc vào kernel đang sử dụng.<br/>
+Khi đã có các function declaration rồi thì chúng ta có thể khai báo struct file_operations như sau:<br/>
+<pre>
+statc struct file_operations oni_fops=
+{
+	.owner = THIS_MODULE,
+	.open = my_open,
+	.release = my_close,
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(2,5,35))
+	.ioctl = my_ioctl
+#else
+	.unlocked_ioctl = my_ioctl
+#endif
+};
+</pre>
 
 
 
