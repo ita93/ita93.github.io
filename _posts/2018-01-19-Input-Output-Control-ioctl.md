@@ -93,7 +93,7 @@ Tiếp theo là khai báo một biến dev_t: biến này sẽ lưu device numbe
 <code>static dev_t dev;</code><br/><br/>
 Struct cdev (character device) cho device.<br/>
 <code>static struct cdev c_dev;</code><br/><br/>
-Struct class dùng để tạo ra device file trong thư mục /dev/<br/>
+Struct class dùng để tạo ra device file trong thư mục /sys/class<br/>
 <code>static struct class *c1;</code><br/><br/>
 Đây là các giá trị mặc định ban đầu của day, month, year.<br/>
 <code>static int day = 11, month = 02, year = 1993;</code><br/><br/>
@@ -124,6 +124,76 @@ statc struct file_operations oni_fops=
 #endif
 };
 </pre>
+
+Đầu tiên khi ldd được insert vào hệt thống, nó sẽ chạy init đầu tiên, nên mình viết hàm init trước cho nó theo thứ tự ahihi. Trước hết là khai báo 2 local variables để lưu giữ result của 1 số lời gọi hàm trong lúc khởi tạo ldd<br/>
+<pre>
+static void __init oni_init(void)
+{
+	int ret;
+	struct device *dev_ret;
+}
+</pre>
+Tiếp theo, chúng ta sẽ đăng ký device number cho driver, sử dụng <code>alloc_chrdev_region. </code><br/>
+<pre>
+...
+if((ret = alloc_chrdev_region(&dev, FIRST_MINOR, MINOR_CNT,"query_ioctl"))<0)
+{
+	printk(KERN_WARNING "Cannot register device number range");
+	return ret;
+}
+</pre>
+Ở đây chúng ta đăng ký một device driver với major number được cấp phát động và chỉ một minor number duy nhất (0). Hàm <code>alloc_chrdev_region</code> sẽ trả về giá trị âm nếu việc đăng ký thất bại. Device number tạo ra sẽ được lưu vào variable <code>dev</code><br/><br/>
+Tiếp theo là khởi tạo character device với cấu trúc cdev ở trên và file_operations chúng ta đã định nghĩa lúc trước. Sau đó dùng hàm <code>cdev_add</code> để thêm nó device vào system<br/>
+<pre>
+...
+cdev_init(&c_dev, &query_fops);
+
+if((ret = cdev_add(&c_dev,dev,MINOR_CNT))<0)
+{
+	printk(KERN_WARNING "Cannot register device to kernel");
+	return ret;
+}
+</pre>
+<br/>
+Tạo class cho device, sau bước này, device sẽ xuất hiện trong /sys/class directory. 
+<pre>
+...
+if(IS_ERR(c1=class_create(THIS_MODULE,"char")))
+{
+	cdev_del(&c_dev);
+	unegister_chrdev_region(dev, MINOR_CNT);
+	printk(KERN_WARNING "Cannot create device class");
+	return PTR_ERR(c1);
+}
+</pre>
+Nếu việc tạo class thất bại, thì chúng ta sẽ phải unregister device number range và xóa struct c_dev đã được khởi tạo.<br/><br/>
+Bước cuối cùng trong việc init là tạo device file<br/>
+<pre>
+...
+if(IS_ERR(dev_ret = device_create(c1,NULL,dev,NULL,"query")))
+{
+	class_destroy(c1);
+	cdev_del(&c_dev);
+	unegister_chrdev_region(dev, MINOR_CNT);
+	printk(KERN_WARNING "Cannot create device file");
+	return PTR_ERR(dev_ret);
+}
+printk(KERN_NOTICE "LDD inserted successfully");
+return 0;
+</pre>
+<br/><br/><br/>
+Hàm tiếp theo chúng ta động tới là hàm exit của module. Hàm này cực kỳ đơn giản, chỉ cần phá hết những gì đã làm trong hàm init là được.<i> open và release cũng là một cái tạo ra và một cái đập phá những thứ được tạo ra, tuy nhiên open/release được gọi trên đơn vị fd, còn init/exit là module</i><br/>
+<pre>
+static void __exit oni_exit(void)
+{
+	device_destroy(c1,dev);
+	class_destroy(c1);
+	cdev_del(&c_dev);
+	unregister_chardev_region(dev, MINOR_CNT);
+	return PTR_ERR(dev_ret);
+}
+</pre>
+
 
 
 
