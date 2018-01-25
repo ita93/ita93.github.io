@@ -234,6 +234,8 @@ static long my_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
 }
 </pre>
 
+Trong hàm my_ioctl, chúng ta sử dụng 1 câu lệnh switch-case để thực hiện các hành động tương ứng với mỗi cmd number đã khai báo ở file header.
+
 
 
 
