@@ -34,6 +34,5 @@ Hàm <code>wake_up</code> đánh thức tất cả các process trong hàng đ�
 Lưu ý: interruptible sleep tức là các sleep có thể bị interrupt bởi một tác nhân bên ngoài, thông thường đây là cái chúng ta cần dùng.<br/><br/>
 
 ## 3.Blocking and Nonblocking Operations
-
-
+Phần này sẽ nói về việc xác định xem khi nào chúng ta sẽ đưa process vào trạng thái sleep?<br/>
 
