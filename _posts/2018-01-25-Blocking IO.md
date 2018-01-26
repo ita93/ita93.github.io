@@ -35,4 +35,12 @@ Lưu ý: interruptible sleep tức là các sleep có thể bị interrupt bởi
 
 ## 3.Blocking and Nonblocking Operations
 Phần này sẽ nói về việc xác định xem khi nào chúng ta sẽ đưa process vào trạng thái sleep?<br/>
+-Một số operation trong UNIX yêu cầu rằng không được block nó, kể cả nếu như nó không thể thực hiện một cách hoàn toàn. Ngoài ra cũng có một số thời điểm mà process thông tin cho bạn rằng nó không muốn bị block, kể cả nó có thực hiện I/O hay không. Những nonblocking I/O rõ rằng này được thông tin bởi cờ O_NONBLOCK trong <code>filp->f_flags</code>.<br/><br/>
+Ở trường hợp blocking operation, đây là mặc định, các thao tác sau đây nên được impelement:<br/>
+-Nếu một process gọi hàm <code>read</code> nhưng dữ liệu chưa khả dụng, thì process block. Process được đánh thức ngay khi dữ liệu đến, và dữ liệu được trả về cho người gọi hàm, kể cả nếu lượng dữ liệu trả về ít hơn lượng dữ liệu được yêu cầu (trong argument <code>count</code>).<br/>
+-Nếu một process gọi hàm <code>write</code> và buffer đầy, process phải block, và nó phải nawmgf ở một wait queue khác so với wait queue đang được sử dụng cho việc reading. Khi một số dữ liệu được ghi vào hardware device, và buffer bắt đầu có không gian trống, process sẽ được đánh thức và <code>write</code> được gọi thành công, mặc dù dữ liệu có thể chỉ được ghi một nửa so với lượng dữ liệu được yêu cầu.<br/><br/>
+Trường hợp O_NONBLOCK flag được set, nonblocking operations nó sẽ return ngay lập tức, cho phép application lấy dữ liệu. Application phải cẩn thận khi sử dụng các <code>stdio</code> function khi đang sử lý các nonblocking files. Cần phải check <code>errno</code>.<br/>
+Một cách tự nhiên, O_NONBLOCK rất có ý nghĩa đối với <code>open</code>. Điều này diễn ra khi lời gọi có thể bị block một thời gian dài, ví dụ, khi mở một FIFO mà tạm thời nó chưa có writer, hoặc khi truy cập một disk file với pending lock. Thông thường, việc mở một device có thể thành công hoặc thất bại, mà không cần phải đợi các event bên ngoài. Tuy nhiên, đôi khi việc mở một device yêu cần một thời gian lâu hơn, và chúng ta có thể chọn sử dụng O_NONBLOCK trong hàm <code>open</code> bằng cách trả về lỗi -EAGAIN ngay lập tức nếu như cờ block được set, sau khi bắt đầu tiến trình khởi tạo device.
+
+
 
