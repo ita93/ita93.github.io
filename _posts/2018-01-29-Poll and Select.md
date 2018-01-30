@@ -43,7 +43,7 @@ Như đã đề cập ở trên, <code>write</code> không có phương pháp n�
 <code>int(*fsync)(struct file *filp, struct detry *dentry, int datasync);</code><br/>
 Khi user-app gọi đến <i>fsync</i>, lời gọi này chỉ nên được return khi device đã hoàn thành việc flush data (đẩy hết data trong output buffer sang device), bất kể việc làm này mất bao nhiêu thời gian đi chăng nữa thì nó cũng k nên đợi.<br/>
 
-## III. The underlying data structure.
+## III. The underlying data structure
 
 
 
