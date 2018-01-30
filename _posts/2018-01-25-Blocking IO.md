@@ -176,4 +176,81 @@ static int __exit oni_sleep_exit(void)
 
 Những thứ râu ria khác, nhưng rất cần thiết
 <pre>
+MODULE_LICENSE("GPL");            ///< The license type -- this affects available functionality
+MODULE_AUTHOR("Oni Ranger");    ///< The author -- visible when you use modinfo
+MODULE_DESCRIPTION("A simple Linux char driver for explain sleeping");  ///< The description -- see modinfo
+MODULE_VERSION("0.1");            ///< A version number to inform users
+module_init(oni_sleep_init);
+module_exit(oni_sleep_exit);
 </pre>
+
+Tiếp theo chúng ta cần tạo ra một user-app để tương tác với device driver đã tạo tên là test.c
+<pre>
+#include<stdio.h>
+#include<stdlib.h>
+#include<errno.h>
+#include<fcntl.h>
+#include<string.h>
+#include<unistd.h>
+
+#define BUFFER_SIZE 256;
+
+int read_device(int fd)
+{
+	char fakeRecv[BUFFER_SIZE];
+	printf("Press anykey to block your read function\n");
+	getchar();
+	read(fd, fakeRecv, strlen(fakeRecv));
+	printf("Woken up\n");
+}
+
+int write_device(int fd)
+{
+	char fakeInput[]="hello";
+	printf("Press anykey to wake up your read function\n");
+	getchar();
+	write(fd, fakeInput, strlen(fakeInput));
+}
+
+int main(int argc, char* argv[])
+{
+	int fd;
+	fd = open("/dev/oni_sleep",O_RDWR);
+	if(fd<0)
+	{
+		perror("Failed to open the device ....");
+		return errno;
+	}
+
+	if(argc == 2)
+	{
+		//nếu có tham số dòng lệnh thì nghĩa là write to device
+		write_device(fd);
+	}else
+	{
+		read_device(fd);
+	}
+}
+</pre>
+
+Tiếp theo cần một Makefile để compile những source code dã mổ cò
+<pre>
+obj-m+=oni_sleep.o
+all:
+ make -C /lib/modules/$(shell uname -r)/build/ M=$(PWD) modules
+ $(CC) test.c -o test
+clean:
+ make -C /lib/modules/$(shell uname -r)/build/ M=$(PWD) clean
+ rm test
+</pre>
+
+<br/>Bây giờ hãy thử xem nó hoạt động như thế nào.<br/>
+Sau khi đã compile, chúng ta nhận được file oni_sleep.ko và test. Việc tiếp theo là insert oni_sleep: <code>sudo insmod oni_sleep.ko</code><br/>
+Mở một tab mới với thực hiện việc đọc từ device với command: <code>sudo ./test read</code><br/>
+Ở tab này bạn sẽ nhìn thấy output như sau:
+<pre>
+Press anykey to block your read function
+....
+</pre>
+Sau khi bạn gõ Enter, tab này sẽ bị block tại đây thay vì return. Mở một tab khác với thực hiện việc ghi vào device với command: <code>sudo ./test</code>. Như đã đề cập ở trên, hàm write sẽ unblock hàm read.<br/>
+Bây giờ quay lại tab read xem process còn bị block hay không?
