@@ -274,9 +274,9 @@ File struct đại diện cho một open file (file đang mở). (mọi open fil
 </p>
 
 ## 3. Thử lập trình một Character device driver (Incomplete)
-<div>
+
 Bây giờ mình sẽ thử tạo một character device driver đơn giản tên là <code>oni_chardev</code>, driver này không có giao tiếp gì với phần cứng cả, chỉ là một ví dụ để hiểu hơn về cách viết character device driver thôi. Trong device này sẽ lưu lại một string được nhập vào bởi user-app, và in ra nếu user-app yêu cầu.
-</div>
+
 ### 3.1 Khai báo các cấu trúc dữ liệu cần thiết.
 Đầu tiên chúng ta khai báo các hằng số cần thiết cho việc đăng ký device number:<br/>
 <pre>
