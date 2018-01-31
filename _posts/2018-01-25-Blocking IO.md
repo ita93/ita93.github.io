@@ -94,6 +94,7 @@ ssize_t sleep_read(struct file *filp, char __user *buf, size_t count, loff_t *po
 	printk(KERN_WARNING "[READ] About to sleep\n");
 	wait_event_interruptible(oni_wait_queue, sleep_flag == 1);
 	printk(KERN_INFO "[READ] read woken up\n");
+	sleep_flag = 0;
 	return 0;
 }
 </pre>
@@ -255,7 +256,7 @@ Press anykey to block your read function
 ....
 </pre>
 Sau khi bạn gõ Enter, tab này sẽ bị block tại đây thay vì return. Mở một tab khác với thực hiện việc ghi vào device với command: <code>sudo ./test write</code>. Như đã đề cập ở trên, hàm write sẽ unblock hàm read.<br/>
-Bây giờ quay lại tab read, gõ Enter xem process còn bị block hay không? Wth, hàm read vẫn bị block @@. Tất nhiên là thế rồi, vì mặc dù mình đã gọi hàm <code>wake_up</code> để đánh thức hàm read, nhưng điều kiện <code>sleep_flag==1</code> vẫn chưa được thảo mãn nên nó vẫn tiếp tục bị block.<br/>
+Bây giờ quay lại tab read, gõ Enter xem process còn bị block hay không? Wth, hàm read vẫn bị block @@. Tất nhiên là thế rồi, vì mặc dù mình đã gọi hàm <code>wake_up</code> để đánh thức hàm read, nhưng điều kiện <code>sleep_flag==1</code> vẫn chưa được thảo mãn nên nó vẫn tiếp tục bị block. Gõ Ctrl+C để kill nó.<br/>
 Bây giờ, mình sẽ set cờ sleep_flag bằng 1 trước khi gọi wake_up, thêm dòng code vào hàm <code>sleep_write</code> như sau:<br/>
 <pre>
 ......
@@ -273,3 +274,6 @@ Bây giờ kiểm tra dmesg:<br/>
 [WRITE] Exit write
 [READ] read woken up
 </pre>
+
+Bây giờ, thử xem <code>wait_event</code> khác <code>wait_event_interruptible</code> như thế nào. Thay <i>wait_event_interruptible</i> trong hàm sleep_write thành <i>wait_event</i>, các tham số vẫn dữ nguyên như cũ, compile lại module, và insert nó vào hệ thống. Tiếp theo, thực hiện test bằng command <code>sudo ./test</code>. Bây giờ, user-app sẽ bị block ở đây, bạn ấn tổ hợp Ctrl+C xem có gì xảy ra? @@ không thể kill chương trình được. Đúng vậy, <code>wait_event</code> sẽ không cho phép chúng ta ngắt process đang bị block, khác với <code>wait_event_interruptible</code>.<br/>
+Các hàm <i>wait timeout</i> sẽ return sau một khoảng thời gian(timeout), đơn vị tính là Jiffies 
