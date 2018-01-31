@@ -61,7 +61,7 @@ Khai báo các biến cần thiết cho device driver <br/>
 static struct cdev oni_sleep_cdev;
 static struct class *oni_sleep_class;
 static struct device *oni_sleep_device;
-static int dev_t device_number;
+static dev_t device_number;
 static int sleep_flag=0;
 </pre>
 
@@ -76,17 +76,19 @@ Tiếp đến là định nghĩa 2 function của file_operations: open() và re
 int sleep_open(struct inode *node, struct file *filp)
 {
 	//Do nothing at the moment
+	return 0;
 }
 
 int sleep_release(struct inode *node, struct file *filp)
 {
 	//Do nothing at the moment
+	return 0;
 }
 </pre>
 Tạm thời 2 function này sẽ không làm gì cả <br/>
 Kế tiếp là function read. Ở đây hàm read sẽ không thực hiện đọc dữ liệu hay làm gì khác cả. Nó chỉ ghi ra các log để trace quá trình sleep và wakeup mà thôi. <br/>
 <pre>
-ssize_t (*sleep_read) (struct file *filp, char __user *buf, size_t count, loff_t *pos)
+ssize_t sleep_read(struct file *filp, char __user *buf, size_t count, loff_t *pos)
 {
 	printk(KERN_INFO "[READ] Enter read function\n");
 	printk(KERN_WARNING "[READ] About to sleep\n");
@@ -98,7 +100,7 @@ ssize_t (*sleep_read) (struct file *filp, char __user *buf, size_t count, loff_t
 Ở hàm read, sau khi in ra 2 log line (dmesg), mình đã block hàm <code>read</code>, và chờ cho điều kiện <code>sleep_flag==1</code> thì sẽ đánh thức nó dậy. Mình sử dụng head queue đã khai báo ở đầu, đưa process vào wait_interruptible, tức là người dùng có thể Ctrl+C để thoát user-app khi nó đang đợi <code>read</code> trả về.<br/>
 Bây giờ, mình sẽ wake up hàm <code>read</code> từ hàm <code>write</code>, hiện tại hàm write cũng chỉ được dùng để đánh thức hàm read từ hàng đợi mà không có ghi dữ liệu gì sất. Mình sẽ dùng <code>wake_up</code> để đánh thức tất cả các entry trung head queue dậy.
 <pre>
-ssize_t (*sleep_write)(struct file *filp, const char __user *buf, size_t count, loff_t *pos)
+ssize_t sleep_write(struct file *filp, const char __user *buf, size_t count, loff_t *pos)
 {
 	printk(KERN_INFO "[WRITE] Enter write function\n");
 	printk(KERN_INFO "[WRITE] Wake read up ZZZZZZ\n");
@@ -164,7 +166,7 @@ static int __init oni_sleep_init(void)
 
 Tiếp theo tất nhiên là hàm exit 
 <pre>
-static int __exit oni_sleep_exit(void)
+static void __exit oni_sleep_exit(void)
 {
 	device_destroy(oni_sleep_class, device_number);
 	class_destroy(oni_sleep_class);
@@ -246,11 +248,28 @@ clean:
 
 <br/>Bây giờ hãy thử xem nó hoạt động như thế nào.<br/>
 Sau khi đã compile, chúng ta nhận được file oni_sleep.ko và test. Việc tiếp theo là insert oni_sleep: <code>sudo insmod oni_sleep.ko</code><br/>
-Mở một tab mới với thực hiện việc đọc từ device với command: <code>sudo ./test read</code><br/>
+Mở một tab mới với thực hiện việc đọc từ device với command: <code>sudo ./test</code><br/>
 Ở tab này bạn sẽ nhìn thấy output như sau:
 <pre>
 Press anykey to block your read function
 ....
 </pre>
-Sau khi bạn gõ Enter, tab này sẽ bị block tại đây thay vì return. Mở một tab khác với thực hiện việc ghi vào device với command: <code>sudo ./test</code>. Như đã đề cập ở trên, hàm write sẽ unblock hàm read.<br/>
-Bây giờ quay lại tab read xem process còn bị block hay không?
+Sau khi bạn gõ Enter, tab này sẽ bị block tại đây thay vì return. Mở một tab khác với thực hiện việc ghi vào device với command: <code>sudo ./test write</code>. Như đã đề cập ở trên, hàm write sẽ unblock hàm read.<br/>
+Bây giờ quay lại tab read, gõ Enter xem process còn bị block hay không? Wth, hàm read vẫn bị block @@. Tất nhiên là thế rồi, vì mặc dù mình đã gọi hàm <code>wake_up</code> để đánh thức hàm read, nhưng điều kiện <code>sleep_flag==1</code> vẫn chưa được thảo mãn nên nó vẫn tiếp tục bị block.<br/>
+Bây giờ, mình sẽ set cờ sleep_flag bằng 1 trước khi gọi wake_up, thêm dòng code vào hàm <code>sleep_write</code> như sau:<br/>
+<pre>
+......
+sleep_flag = 1;
+wake_up(&oni_wait_queue);
+.............
+</pre>
+Bây giờ compile lại, sau đấy insmod và thực hiện test như cũ. Bạn sẽ thấy tab read được unblock sau khi thực hiện <code>sudo ./test write</code>.<br/>
+Bây giờ kiểm tra dmesg:<br/>
+<pre>
+[READ] Enter read function
+[READ] About to sleep
+[WRITE] Enter write function
+[WRITE] Wake read up ZZZZZZ
+[WRITE] Exit write
+[READ] read woken up
+</pre>
