@@ -1,21 +1,21 @@
-title:            Phung Hoang
-description:      "Blogging is fun"
+title:            Oni Ranger
+description:      "Write down to remember it."
 logo:             logo.png
-disqus_shortname: phunghv
+disqus_shortname: phind
 share:            true
 dropcap:			true
 # Change url to your domain. Leave localhost server or blank when working locally.
 # or use the hint from http://jekyllrb.com/docs/github-pages/ to keep this the same 
 # whether working locally or remotely. Start Jekyll with: jekyll serve --baseurl ''
-url:        	  https://phunghv.github.io
+url:        	  https://ita93.github.io
 
 # Owner/author information
 owner:
-  name:           Phung Hoang Van
+  name:           Nguyễn Đình Phi
   avatar:         hmfaysal.jpg
-  email:          phunghv.vnu@gmail.com
+  email:          phind.uet@gmail.com
   # Use the coder's toolbox at http://coderstoolbox.net/string/#!encoding=xml&action=encode&charset=us_ascii to encode your description into XML string
-  description:    Cứ đi rồi sẽ đến, Cứ tìm rồi sẽ thấy
+  description:    Linux Lover
   # Social networking links used in footer. Update and remove as you like.
   twitter:        rio094
   facebook:       rio094
@@ -45,7 +45,7 @@ links:
     url: /about
 
 # http://en.wikipedia.org/wiki/List_of_tz_database_time_zones
-timezone:    Asia/Dhaka
+timezone:    Asia/Singapore
 future:      true
 highlighter: pygments
 markdown:    kramdown
@@ -74,8 +74,8 @@ kramdown:
 
 prose:
   rooturl: '_posts'
-  siteurl: 'https://phunghv.github.io/'
-  relativeLinks: 'https://phunghv.github.io/links.jsonp'
+  siteurl: 'https://ita93.github.io/'
+  relativeLinks: 'https://ita93.github.io/links.jsonp'
   media: 'images'
   metadata:
     _posts:
