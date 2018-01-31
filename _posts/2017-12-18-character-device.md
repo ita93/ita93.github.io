@@ -275,11 +275,126 @@ File struct đại diện cho một open file (file đang mở). (mọi open fil
 
 ## 3. Thử lập trình một Character device driver (Incomplete)
 <div>
-Bây giờ mình sẽ thử tạo một character device driver đơn giản tên là <code>oni_scull</code>
-
+Bây giờ mình sẽ thử tạo một character device driver đơn giản tên là <code>oni_chardev</code>, driver này không có giao tiếp gì với phần cứng cả, chỉ là một ví dụ để hiểu hơn về cách viết character device driver thôi. Trong device này sẽ lưu lại một string được nhập vào bởi user-app, và in ra nếu user-app yêu cầu.
 </div>
 ### 3.1 Khai báo các cấu trúc dữ liệu cần thiết.
+Đầu tiên chúng ta khai báo các hằng số cần thiết cho việc đăng ký device number:<br/>
+<pre>
+#define MINOR_FIRST 0
+#define MINOR_COUNT 1
+#define DEV_NAME "oni_chrdev"
+#define BUFFER_SIZE 256
+</pre>
+Device của chúng ta sẽ alloc minor bắt đầu tư 0, với tối đa là 1 minor.<br/>
+Tiếp theo là các cấu trúc mà mọi cdd đều có, về cơ bản chúng ta sẽ khai báo như sau.:
+<pre>
+static struct cdev oni_cdev;
+static struct class *oni_class;
+static struct class *oni_device;
+static size_t size_of_msg=0;
+</pre>
+Một biến kiểu <code>dev_t</code> để lưu giữ device number mà device được cấp phát.
+<pre>
+static dev_t oni_device_number;
+</pre>
+
+Tiếp theo là cho khai báo các signature của các function được sử dụng bởi file_operations:
+<pre>
+	static int oni_open(struct inode *, struct file *);
+	static int oni_release(struct inode *, struct file *);
+	static ssize_t oni_write(struct file *, const char __user *, size_t count, loff_t *pos);
+	static ssize_t oni_read(struct file *, char __user *, size_t count, loff_t *pos);
+</pre>
+
+Sau khi đã khai báo các signature thì chúng ta sẽ định nghĩa file operation được sử dụng bởi device.
+<pre>
+struct file_operations oni_fops
+{
+	.owner = THIS_MODULE,
+	.open = oni_open,
+	.release = oni_release,
+	.write = oni_write,
+	.read = oni_read
+};
+</pre>
+
+Cuối cùng là biến để lưu giữ chuỗi ký tự:
+<pre>
+char msg[BUFFER_SIZE];
+</pre>
+
 ### 3.2 Đăng ký device driver với kernel.
+Việc đầu tiên khi một device driver được insert vào kernel là kernel sẽ gọi đến hàm init của nó. Hàm init sẽ thực hiện việc đăng ký device number, khởi tạo và đăng ký cấu trúc cdev với kernel, ngoài ra nó cũng có thể đăng ký class và device file cho device. Nếu một device không có device file thì user-app không giao tiếp đọc ghi với nó được(đoán thế), tuy nhiên, linux không yêu cầu chúng ta tạo device file khi init module, thay vào đó, chúng ta có thể tạo ra device file sau bằng command <code>mknod</code>. Trong ví dụ này, mình sẽ tạo luôn device file trong hàm init.<br/>
+Đầu tiên chúng ta cần có một device number cho device của chúng ta. Ở đây, có thể dùng macro MKDEV() nếu như chúng ta đã xác định sẵn một major number cho device, sao cho nó không trùng với major number của các device khác trong hệ thống, mặc nhiên là cách này chỉ dùng được khi device driver của chúng ta chỉ dùng cho một hệ thống cá nhân của riêng mình. Trong các hệ thống public, có nhiều người sử dụng thì chúng ta không thể biết được liệu người dùng có thêm vào hệ thống một device nào khác có major number giống của chúng ta hay không. Do đó chúng ta sẽ sử dụng phương pháp cấp phát động cho device number, phương pháp này, kernel sẽ cung cấp một major number chưa có ai sử dụng cho device của chúng ta. (thật ra là của tui, nhưng mà viết chúng ta cho nó có vần thôi).
+<pre>
+int ret; 
+ret = alloc_chardev_register(oni_device_number, MINOR_FIRST, MINOR_COUNT,DEV_NAME);
+if( ret != 0 )
+{
+	printk(KERN_WARNING "Cannot allocate a device number");
+	return ret;
+}
+</pre>
+
+Trên đây, chúng ta đã đăng ký một device number có major động và minor number từ 0 đến 0. Biến ret sẽ dùng để lưu giá trị trả về của hàm alloc, nếu ret âm thì tức là có lỗi, lúc này chúng ta sẽ return ngay tắp lự.<br/>
+
+Khi đã có được device number, chúng ta sẽ khởi tạo cấu trúc cdev với hàm <code>cdev_init</code>
+<code>cdev_init(&oni_dev, &oni_fops);</code>
+Với dòng code này, chúng ta đã khởi tạo cấu trúc oni_dev và ghi nhớ oni_fops, sẵn sàng cho việc sử dụng sau này.<br/>
+Tiếp theo là thông báo với kernel về sự hiện diện của chúng ta.<br/>
+<pre>
+ret = cdev_add(&oni_dev, oni_device_number, MINOR_COUNT);
+if( ret != 0 )
+{
+	unregister_chrdev_region(oni_device_number, MINOR_COUNT);
+	printk(KERN_WARNING "Cannot add device to kernel");
+	return ret;
+}
+</pre>
+Dòng này dùng để thêm device được biểu diễn bởi biến <code>oni_dev</code> (chính là device này đây) vào kernel, cũng gần như ngay lập tức, make device live. Nếu như lời gọi hàm thực hiện không thành công thì chúng ta kết thúc quá trình khởi tạo device, đồng thời giải phóng device number đang nắm giữ.<br/>
+Thật ra, chỉ cần như này là device driver đã có thể được insert vào hệ thống với insmod rồi, tuy nhiên chúng ta sẽ tạo class và device file cho nó trong hàm init này luôn.
+<pre>
+oni_class = class_create(THIS_MODULE, DEV_NAME);
+if (IS_ERR(oni_class))
+{
+	cdev_del(&oni_cdev);
+	unregister_chrdev_region(oni_device_number, MINOR_COUNT);
+	printk(KERN_WARNING "Cannot create class");
+	return PTR_ERR(oni_class);
+}
+</pre>
+Hàm <code>class_create</code> trả về một con trỏ <code>struct class</code>. Vậy class là gì? Cái này không phải class (lớp) trong java hay C++. Cái này tạm gọi là class device.<br>
+Các device trong kernel được chia thành nhiều class. Các device trong cùng 1 class thường có chung một chức năng chính. Bạn có thể xem các class hiện có ở dir: /sys/class
+
+Đối với char device, chúng ta có thể tạo device file bằng cách sau:
+<pre>
+oni_device = device_create(oni_class, NULL, oni_device_number, NULL, DEV_NAME);
+if (IS_ERR(oni_device))
+{
+	class_destroy(oni_class)
+	cdev_del(&oni_cdev);
+	unregister_chrdev_region(oni_device_number, MINOR_COUNT);
+	printk(KERN_WARNING "Cannot create device file");
+	return PTR_ERR(oni_device);
+}
+</pre>
+Bằng đoạn code này, kernel sẽ tạo ra file /dev/oni_chrdev, và các user-app có thể giao tiếp với device thông qua file này.
+Đến đây chúng ta hoàn thành hàm init rồi hí hí.
+<pre>
+	printk(KERN_INFO "Initialized device driver");
+	return 0;
+</pre>
+
+Vì hàm exit hiện tại không có nhiều việc để làm nên sẽ nói luôn ở đây:
+<pre>
+void __exit oni_exit(void)
+{
+	device_destroy(oni_class, oni_device_number);
+	class_destroy(oni_class)
+	cdev_del(&oni_cdev);
+	unregister_chrdev_region(oni_device_number, MINOR_COUNT);
+}
+</pre>
 ### 3.3 Các hàm của cấu trúc file_operations
 #### a. open and release
 <div>
@@ -290,11 +405,13 @@ Thông thường, hàm open() sẽ thực hiện các nhiệm vụ sau:
 - Cập nhật f_op nếu cần tiếp.
 - Cấp phát và gán các thông tin cần thiết vào filp->private_data.
 
-Tuy nhiên, Mục tiêu hàng đầu là xác định xem device nào sẽ được mở (tức là cái file device nào ấy). 
+Tuy nhiên, Mục tiêu hàng đầu là xác định xem device nào sẽ được mở (tức là cái file device nào ấy). <br/>
+Hiện tại chúng ta chưa cần đến hàm này, nên chỉ cần định nghĩa 1 hàm thân rỗng là được.
 </div>
 
 release(): Hàm này dùng để phá hoại hết những gì đã làm trong hàm open. Đầu tiên là phải thu deallocate filp->private_data. Poweroff device trong lần dùng cuối. trong scull hàm này không làm gì cả vì không có gì để giải phóng hay power off hết.
-Trong kernel, có một counter dùng để đếm xem một <i>file</i> structure có bao nhiêu đối tượng đang sử dụng nó. Khi counter bằng này có giá trị bằng 0 thì đó được xem là lần sử dụng cuối của device và nó sẽ bị poweroff. Ngoài ra counter cũng đảm bảo là mỗi lời gọi đến open() sẽ chỉ có một lời gọi đến release() đi kèm (tránh release 1 file 2 lần).
+Trong kernel, có một counter dùng để đếm xem một <i>file</i> structure có bao nhiêu đối tượng đang sử dụng nó. Khi counter bằng này có giá trị bằng 0 thì đó được xem là lần sử dụng cuối của device và nó sẽ bị poweroff. Ngoài ra counter cũng đảm bảo là mỗi lời gọi đến open() sẽ chỉ có một lời gọi đến release() đi kèm (tránh release 1 file 2 lần).<br/>
+Hiện tại chúng ta chưa cần đến hàm này, nên chỉ cần định nghĩa 1 hàm thân rỗng là được.
 
 #### b. read and write
 
@@ -306,11 +423,11 @@ Do buff là user-space pointer nên nó không thể được truy vấn một c
 - User-mem được paged (paging) nên nó không tồn tại lâu dài trong RAM. Việc tham chiếu đến user-space mem một cách trực tiếp sẽ gây ra page fault (không phải lúc nào cũng xảy ra nhưng xác suất cao) kể cả nếu pointer trong kernel-space và user-space có cách mapping giống nhau.
 - Về vấn đề bảo mật, việc tham chiếu trực tiếp đến pointer của user-space cũng không tốt vì nó tạo ra risk cao. 
 
-Mặc dù có những hạn chế ở trên, nhưng rõ ràng là chúng ta vẫn cần truy cập đến user-space buffer để hoàn thành việc read(và cả write) của ldd. Kernel cung cấp cho ta các hàm để thực hiện điều này một cách an toàn (thank torvalds). Những hàm này được định nghĩa trong header <span style="color: red">asm/uaccess.h</span>. Những hàm này đã sử dụng ma thuật hắc ám của kẻ mà ai cũng biệt là ai để truyền dữ liệu giữa kernel và user space một cách an toàn và im lặng. Trong phần read(), write() chúng ta cần đến phép thuật sau:
+Mặc dù có những hạn chế ở trên, nhưng rõ ràng là chúng ta vẫn cần truy cập đến user-space buffer để hoàn thành việc read(và cả write) của ldd. Kernel cung cấp cho ta các hàm để thực hiện điều này một cách an toàn (thank torvalds). Những hàm này được định nghĩa trong header <span style="color: red">linux/uaccess.h</span>. Những hàm này đã sử dụng ma thuật hắc ám của kẻ mà ai cũng biệt là ai để truyền dữ liệu giữa kernel và user space một cách an toàn và im lặng. Trong phần read(), write() chúng ta cần đến phép thuật sau:
 ```usigned long copy_to_user(void __user *to, const void *from, usinged long count);```
 ```usigned long copy_from_user(void __user *to, const void __user *from, usinged long count);```
-Lưu ý là do user-space sử dụng cơ chế paging/swapping nên tại thời điểm bất kỳ, có thể page cần dùng để copy/send data không nằm trong bộ nhớ, do đó cần có thời gian để transfer các page này vào mem, điều này đồng nghĩ với việc các hàm read/write phải sleepable ở đây, nên các hàm này sẽ thực hiện một cách concurrently với các hàm khác của driver. 
-Hai hàm này không phải là atomic, tức là nó sẽ kiểm tra xem user-space pointer có hợp lệ hay không. Nếu không, việc copy sẽ không được thực hiện, nếu có nó sẽ thực hiện, nhưng giả dụ trong lúc đang copy nó phát hiện ra một địa chỉ không hợp lệ, quá trình copy sẽ bị break và phần data chưa copy sẽ không được xử lý, phần đã copy thì vẫn giữ nguyên. Giá trị trả về của các hàm này đều là lượng data đã copy (bytes).
+Lưu ý là do user-space sử dụng cơ chế paging/swapping nên tại thời điểm bất kỳ, có thể page cần dùng để copy/send data không nằm trong bộ nhớ, do đó cần có thời gian để transfer các page này vào mem, điều này đồng nghĩ với việc các hàm read/write phải sleepable ở đây, nên các hàm này sẽ thực hiện một cách concurrently với các hàm khác của driver. <br/>
+Hai hàm này không phải là atomic, tức là nó sẽ kiểm tra xem user-space pointer có hợp lệ hay không. Nếu không, việc copy sẽ không được thực hiện, nếu có nó sẽ thực hiện, nhưng giả dụ trong lúc đang copy nó phát hiện ra một địa chỉ không hợp lệ, quá trình copy sẽ bị break và phần data chưa copy sẽ không được xử lý, phần đã copy thì vẫn giữ nguyên. Giá trị trả về của các hàm này đều là lượng data đã copy (bytes). [Atomic nghĩ là chỉ có 2 trường hợp: chạy hết thành công, trường hợp 2 là chạy thất bại ở một bước nào đấy thì toàn bộ sẽ bị roll back, giống trong SQL].<br/>
 
 - Cần update *offp sau khi thực hiện read/write để đảm bảo rằng vị trí hiện tại là đúng.
 - Nếu thao tác đọc/ghi không thành công thì giá trị trả về là 1 số ÂM.
@@ -321,9 +438,36 @@ Với mỗi giá trị trả về của hàm read(), có một tác động tư�
 - Nếu giá trị là 0 thì không có data để truyền đi nữa (chakra cạn kiệt).
 - Nếu giá trị trả về là 0, thì tức là nó đã bị phong ấn ở đâu đấy.
 - Trường hợp cá biệt, chakra vẫn còn nhưng bị bakugan phong tỏa huyệt đạo, shinobi sẽ rơi vào trang thái block.
+Mặc dù ở trên có đề cập việc thay đổi file offset, tuy nhiên ví dụ của chúng ta mong muốn là đọc ghi từ đầu file, nên không cần phải update nó làm gì cả, (cả read và write).
+
+<pre>
+static ssize_t oni_read(struct file *filp, char __user *buffer, size_t count, loff_t *offset)
+{
+	int err_count = 0;
+	err_count = copy_to_user(buffer, msg, size_of_msg);
+	if( err_count == 0 )
+	{
+		printk(KERN_INFO "Oni Chrdev: Sent %d chars to the user\n", size_of_msg);
+		return 0;
+	}else
+	{
+		printk(KERN_INFO "Oni Chrdev: Failed to send %d chars to the user\n", err_count);
+		return -EFAULT;
+	}
+}
+</pre>
 b2. write()
 giống read, write có thể truyền ít hơn dữ liệu được yêu cầu, sau đây là các giá trị trả về ở user-space calling tương ứng.
 - Nếu giá trị trả về bằng count thì toàn bộ các bytes được yêu cầu đã truyền thành công.
 - Nếu giá trị trả về là giá trị dương lớn hơn count, thì chỉ một phần chakra được truyền từ cửu vĩ sang naruto. Chương trình (user-space) gần như ngay lập tức cố gắng write phần data còn lại.
 - Nếu giá trị trả về là 0 thì tức là không có ghì để write.
 - Nếu giá trị trả về là âm thì đã có lỗi.
+<pre>
+static ssize_t oni_write(struct file *filp, const char __user *buffer, size_t count, loff_t *offset)
+{
+	printf(msg, "%s(%zu letters)",buffer,count);
+	size_of_msg = strlen(msg);
+	printk(KERN_INFO "Oni Chrdev: receive %zu charaters for the user\n",count);
+	return count;
+}
+</pre>
