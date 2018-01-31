@@ -1,6 +1,6 @@
 title:            Oni Ranger
 description:      "Write down to remember it."
-logo:             logo.png
+logo:             avatar.jpeg
 disqus_shortname: phind
 share:            true
 dropcap:			true
@@ -19,7 +19,7 @@ owner:
   # Social networking links used in footer. Update and remove as you like.
   twitter:        rio094
   facebook:       rio094
-  github:         phunghv      
+  github:         ita93      
   instagram:      rio094
   # For Google Authorship https://plus.google.com/authorship
   google_plus:    https://plus.google.com/u/0/116480055697573755540
