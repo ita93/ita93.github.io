@@ -7,8 +7,8 @@ imagefeature: fourseasons.jpg
 chart: true
 ---
 <figure>
-  <img src="{{ site.url }}/images/hossain-faysal.jpg" alt="Oni Ranger">
-  <figcaption>Hossain Mohammad Faysal</figcaption>
+  <img src="{{ site.url }}/images/hmfaysal.jpg" alt="Oni Ranger">
+  <figcaption>Nguyễn Đình Phi</figcaption>
 </figure>
 
 {% assign total_words = 0 %}
@@ -31,13 +31,6 @@ My name is **Nguyễn Đình Phi**, and this is my personal blog. It currently h
 
 I was born in 1993 spring. I am a developer, with more than 2 years of professional developer experience. Currently, I am working as a Embedded Engineer at Compex System, a local company in Singapore. Back to the past, I graduated from Vietnam National University, Hanoi with major in Information Technology in 2015. Afterward, I went to work at Toshiba Software Development Vietnam in 2 years, at there, I develop a Thin client solution called TZCS and a broad casting system for Japanese companies. After 2 years, I want to find a chance to work oversea, then I left toshiba and got a new job in singapore. I consider myself as a developer who loves to write clean and maintainable code. I can work indepently or within a team, however, I prefer the latter because sharing is better.
 
-<figure>
-	<img src="{{ site.url }}/images/Hossain-Mohd-Faysal.jpg" alt="This is a dog.">
-	<figcaption>At Bates Linear Accelerator Center</figcaption>
-</figure>
-
-I was born and brought up in Doha. Yes, its a desert peninsula, yes we have camels and falcons and all the other Middle Eastern traits/stereotypes you can think of.
-
 <figure class="third">
 	<a href="{{ site.url }}/images/about/1.jpg"><img src="{{ site.url }}/images/about/1-001.jpg"></a>
 	<a href="{{ site.url }}/images/about/2.jpg"><img src="{{ site.url }}/images/about/2-001.jpg"></a>
@@ -53,11 +46,6 @@ I was born and brought up in Doha. Yes, its a desert peninsula, yes we have came
 	<a href="{{ site.url }}/images/about/8.jpg"><img src="{{ site.url }}/images/about/8-001.jpg"></a>
 	<figcaption>Doha at its full glory.</figcaption>
 </figure>
-
-At some point in the not-terribly-distant future, I hope to found a self-sustaining collective of clever people, for fun, profit(?), and the promotion of human life in the universe. This might wind up in Qatar, Bangladesh, Scandinavia, the Massachusetts Bay Area, the SF Bay Area, Japan, Germany, or the dustbin of overly idealistic plans. (Yes, I have a special bin for overly idealistic plans. In my district they can't be recycled with residential mixed paper.) The most challenging aspect of this concept is to curtail unproductive competition with other people who will inevitably have the same idea. (Some sort of cooperative federation...) I'm presently looking for people who might be interested in being a part of such an organization.
-
-Anyways, for now I'm just working toward changing the face of Electrical Engineering forever. Not that I necessarily expect to succeed, but it's something to strive for, and it's a fun problem to work on.
-
 
 Entrepreneur  
 Designer  
