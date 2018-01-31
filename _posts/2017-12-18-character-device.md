@@ -273,74 +273,13 @@ File struct đại diện cho một open file (file đang mở). (mọi open fil
 	*/
 </p>
 
-## 3. Thử lập trình một Character device driver
+## 3. Thử lập trình một Character device driver (Incomplete)
 <div>
-Bây giờ mình sẽ thử tạo một character device driver đơn giản tên là <i>scull</i>, ví dụ này được lấy từ <a href="https://lwn.net/Kernel/LDD3/">Linux Device Driver(ldd3)</a>.
+Bây giờ mình sẽ thử tạo một character device driver đơn giản tên là <code>oni_scull</code>
 
-Device driver này hoạt động như một buffer, nó không làm gì khác ngoài việc quản lý các phần bộ nhớ mà bạn có thể đọc hoặc ghi lên đấy. Bộ nhớ được quản lý bằng cách cấu trúc thành một danh sách liên kết, mỗi node là một scull_qset, mỗi scull_qset lưu giữ một vùng dữ liệu và một con trỏ tới qset tiếp theo. Vùng dữ liệu ở đây là một bảng các phần tử (quantums). Trong mỗi bảng này có SCULL_NUM_QUANTUM phần tử, mỗi cái có kích thước SCULL_QUANTUM_SIZE bytes.
-Ngoài ra, ở đây còn sử dụng một struct là scull_dev, chứa các thông tin mà device cần đến.
 </div>
 ### 3.1 Khai báo các cấu trúc dữ liệu cần thiết.
-#### a, Structure qset
-<code>
-	struct scull_qset{
-		void **data; /data region
-		struct scull_qset *next; //next qset
-	}
-</code>
-#### b, Structure scull_dev
-<code>
-	struct scull_dev{
-		struct scull_qset *data; 	//Pointer to the first qset.
-		struct quantum;				//Current size of each quamtum.
-		int qset; 					//Number of qset?
-		unsigned long size;			//Amount of data store here.
-		unsigned int access_key;
-		struct semaphore sem;		//Semaphore
-		struct cdev cdev;			//Cdev struct
-	}
-</code>
 ### 3.2 Đăng ký device driver với kernel.
-Kernel sử dụng <span style="color:blue">struct cdev</span> để đại diện cho các character device. Để kernel có thể thực thi các
-tác vụ có trong driver, chúng ta cần đăng ký struct này với kernel.
-<span style="color:blue">struct cdev</span> nằm trong header <span style="color:blue">linux/cdev.h</span>
-<div>
-	Có hai cách để đăng ký driver với kernel. Đầu tiên, trong trường hợp chỉ muốn đăng ký duy nhất <span style="color:blue">struct cdev</span>
-	thì có thể dùng:<br/>
-		<code>
-			struct cdev *my_cdev = cdev_alloc(); <br/>
-			my_cdev->ops = &my_fops; <br/>
-		</code>
-</div>
-<div>
-	Trường hợp thứ 2, chúng ta muốn device driver có một cấu trúc dữ liệu riêng để lưu giữ các thông tin của chardev, trong đó
-	có chứa cả <span style="color:blue">struct cdev</span>, thì chúng ta sẽ sử dụng cách sau:
-		<code>
-			void cdev_init(struct cdev *dev, struct file_operations *fops); <br/>
-			int cdev_add(struct cdev *dev, dev_t num, unsigned int count); <br/>
-		</code>
-	Đây là cách mà scull driver sử dụng. <br/>
-	Giải thích các tham số:<br/>
-	- <span style="color: blue">struct cdev *dev</span> : Đây là cấu trúc cdev đại diện của chardev.
-	- <span style="color: blue">struct file_operations *fops</span> : Cấu trúc này chứa các function pointer đến các hàm thực hiện các tác vụ của chardev.
-	- Hàm <span style="color: blue">int cdev_add</span> đăng ký chardev với kernel với <span style="color: blue">dev_t num</span> là device number đầu tiên, còn <span style="color: blue">int count</span> là số lượng device number sẽ liên kết với device. Hàm này trả về 0 nếu thành công và ngược lại.
-</div>
-<div>
-	<p>scull driver khởi tạo và thêm cấu trúc cdev của nó vào hệ thống bằng cách sau:</p>
-	<code>
-		static void scull_setup_dev(struct scull_dev *dev, int index)
-		{
-			int err, devno = MKDEV(scull_major, scull_minor + index);
-			cdev_init(&dev->cdev, &scull_fops);
-			dev->cdev.owner = THIS_MODULE;
-			dev->cdev.ops = &scull_fops;
-			err = cdev_add(&dev->cdev, devno, 1);
-			if(err)
-				printk(KERN_NOTICE "Error %d adding scull%d",err,index);
-		}
-	}
-	</code>
-</div>
 ### 3.3 Các hàm của cấu trúc file_operations
 #### a. open and release
 <div>
@@ -353,20 +292,6 @@ Thông thường, hàm open() sẽ thực hiện các nhiệm vụ sau:
 
 Tuy nhiên, Mục tiêu hàng đầu là xác định xem device nào sẽ được mở (tức là cái file device nào ấy). 
 </div>
-```
-int scull_open(struct inode *inode, struct file *filp)
-{
-	struct scull_dev *dev; 
-	dev = container_of(inode->i_cdev, struct scull_dev, cdev);
-	filp->private_data = dev;
-
-	if((filp->f_flags & O_ACCMODE) == O_WRONLY)
-	{
-		scull_trim(dev);
-	}
-	return 0;
-}
-```
 
 release(): Hàm này dùng để phá hoại hết những gì đã làm trong hàm open. Đầu tiên là phải thu deallocate filp->private_data. Poweroff device trong lần dùng cuối. trong scull hàm này không làm gì cả vì không có gì để giải phóng hay power off hết.
 Trong kernel, có một counter dùng để đếm xem một <i>file</i> structure có bao nhiêu đối tượng đang sử dụng nó. Khi counter bằng này có giá trị bằng 0 thì đó được xem là lần sử dụng cuối của device và nó sẽ bị poweroff. Ngoài ra counter cũng đảm bảo là mỗi lời gọi đến open() sẽ chỉ có một lời gọi đến release() đi kèm (tránh release 1 file 2 lần).
@@ -396,93 +321,9 @@ Với mỗi giá trị trả về của hàm read(), có một tác động tư�
 - Nếu giá trị là 0 thì không có data để truyền đi nữa (chakra cạn kiệt).
 - Nếu giá trị trả về là 0, thì tức là nó đã bị phong ấn ở đâu đấy.
 - Trường hợp cá biệt, chakra vẫn còn nhưng bị bakugan phong tỏa huyệt đạo, shinobi sẽ rơi vào trang thái block.
-Sau đây là source code hàm read của scull
-```ssize_t scull_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos)
-{
-	struct scull_dev *dev = filp->private_data;
-	struct scull_qset *dptr;
-	int quantum = dev->quantum, qset = dev->qset;
-	int itemsize = quantum*qset;
-	int item, s_pos, q_pos, rest;
-	if (*f_pos >= dev->size)
-		goto out;								//Nếu f_pos vượt quá kích thước device size tức là end-of-file thì return
-	if (*f_pos + count > dev->size)
-		count = dev->size -*f_pos;				//truncate buf size thành kích thước còn lại của device size.
-	item = (long)*f_pos / itemsize;				//vị trí của q_set cần đọc.
-	rest = (long)*f_pos % itemsize;				//vị trí của quantum trong q_set đó
-	s_pos = rest/quantum; 						//Đây là index 1 trong **data của qset
-	q_pos = rest % quantum;						//Đây là vị trí của byte trong **data;
-	dptr = scull_follow(dev, item); 			//traveling linked list.
-
-	if(dptr == NULL || !dptr->data || !dptr->data[s_pos])
-		goto out;
-
-	if (count>quantum - q_pos)
-		count = quantum - q_pos;
-	if(copy_to_user(buf, dptr->data[s_pos]+q_pos,count))
-	{
-		retval = -EFAULT;
-		goto out;
-	}
-
-	*f_pos += count;
-	retval = count;
-	out:
-		up(&dev->sem);
-		return retval;
-}```
-
 b2. write()
 giống read, write có thể truyền ít hơn dữ liệu được yêu cầu, sau đây là các giá trị trả về ở user-space calling tương ứng.
 - Nếu giá trị trả về bằng count thì toàn bộ các bytes được yêu cầu đã truyền thành công.
 - Nếu giá trị trả về là giá trị dương lớn hơn count, thì chỉ một phần chakra được truyền từ cửu vĩ sang naruto. Chương trình (user-space) gần như ngay lập tức cố gắng write phần data còn lại.
 - Nếu giá trị trả về là 0 thì tức là không có ghì để write.
 - Nếu giá trị trả về là âm thì đã có lỗi.
-
-```python
-ssize_t scull_write(struct file *filp, const char __user *buf, size_t count, loff_t *f_pos)
-{
-	struct scull_dev *dev = filp->private_data;
-	struct scull_qset *dptr;
-	int quantum = dev->quantum, qset=dev->qset;
-	int itemsize = quantum * qset;
-	int item, s_pos, q_pos, rest;
-	ssize_t retval = -ENOMEM; 
-
-	item = (long)*f_pos/itemsize;
-	rest = (long)*f_pos%itemsize;
-	s_pos = rest/quantum; q_pos=rest%quantum;
-
-	dptr = scull_follow(dev, item);
-	if(dptr == NULL)
-		goto out;
-	if(!dptr->data)
-	{
-		dptr->data = kmalloc(qset * sizeof(char *), GFP_KERNEL);
-		if(!dptr->data)
-			goto out;
-		memset(dptr->data, 0, q_set * sizeof(char *));
-	}
-
-	if(!dptr->data[s_pos]){
-		dptr->data[s_pos] = kmalloc(quantum, GFP_KERNEL)
-		if(!dptr->data[s_pos])
-			goto out;
-	}
-
-	if(count > quantum - q_pos)
-		count = quantum - q_pos;
-	if(copy_from_user(dptr->data[s_pos]+q_pos, buf, count))
-	{
-		retval = -EFAULT;
-		goto out;
-	}
-	*f_pos+=count;
-	retval = count;
-
-	if(dev->size < *f_pos)
-		dev->size = *f_pos;
-	out:
-		up(&dev->sem);
-		return retval;
-}```
