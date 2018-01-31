@@ -397,7 +397,6 @@ void __exit oni_exit(void)
 </pre>
 ### 3.3 Các hàm của cấu trúc file_operations
 #### a. open and release
-<div>
 open(): thực hiện các khởi tạo cơ bản để giúp các tác vụ khác có thể hoạt động sau đó.
 Thông thường, hàm open() sẽ thực hiện các nhiệm vụ sau:
 - Kiểm tra xem device đã sẵn sàng chưa? Hardware có vấn đề gì không?....
@@ -407,7 +406,6 @@ Thông thường, hàm open() sẽ thực hiện các nhiệm vụ sau:
 
 Tuy nhiên, Mục tiêu hàng đầu là xác định xem device nào sẽ được mở (tức là cái file device nào ấy). <br/>
 Hiện tại chúng ta chưa cần đến hàm này, nên chỉ cần định nghĩa 1 hàm thân rỗng là được.
-</div>
 
 release(): Hàm này dùng để phá hoại hết những gì đã làm trong hàm open. Đầu tiên là phải thu deallocate filp->private_data. Poweroff device trong lần dùng cuối. trong scull hàm này không làm gì cả vì không có gì để giải phóng hay power off hết.
 Trong kernel, có một counter dùng để đếm xem một <i>file</i> structure có bao nhiêu đối tượng đang sử dụng nó. Khi counter bằng này có giá trị bằng 0 thì đó được xem là lần sử dụng cuối của device và nó sẽ bị poweroff. Ngoài ra counter cũng đảm bảo là mỗi lời gọi đến open() sẽ chỉ có một lời gọi đến release() đi kèm (tránh release 1 file 2 lần).<br/>
