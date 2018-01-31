@@ -32,17 +32,17 @@ My name is **Nguyễn Đình Phi**, and this is my personal blog. It currently h
 I was born in 1993 spring. I am a developer, with more than 2 years of professional developer experience. Currently, I am working as a Embedded Engineer at Compex System, a local company in Singapore. Back to the past, I graduated from Vietnam National University, Hanoi with major in Information Technology in 2015. Afterward, I went to work at Toshiba Software Development Vietnam in 2 years, at there, I develop a Thin client solution called TZCS and a broad casting system for Japanese companies. After 2 years, I want to find a chance to work oversea, then I left toshiba and got a new job in singapore. I consider myself as a developer who loves to write clean and maintainable code. I can work indepently or within a team, however, I prefer the latter because sharing is better.
 
 <figure class="third">
-	<a href="{{ site.url }}/images/about/1.jpg"><img src="{{ site.url }}/images/about/1.jpg"></a>
-	<a href="{{ site.url }}/images/about/2.jpg"><img src="{{ site.url }}/images/about/2.JPG"></a>
-	<a href="{{ site.url }}/images/about/3.jpg"><img src="{{ site.url }}/images/about/3.JPG"></a>
+	<a href="{{ site.url }}/images/about/1.JPG"><img src="{{ site.url }}/images/about/1.JPG"></a>
+	<a href="{{ site.url }}/images/about/2.JPG"><img src="{{ site.url }}/images/about/2.JPG"></a>
+	<a href="{{ site.url }}/images/about/3.JPG"><img src="{{ site.url }}/images/about/3.JPG"></a>
 </figure>
 <figure class="half">
-	<a href="{{ site.url }}/images/about/4.jpg"><img src="{{ site.url }}/images/about/4.JPG"></a>
-	<a href="{{ site.url }}/images/about/5.jpg"><img src="{{ site.url }}/images/about/5.JPG"></a>
+	<a href="{{ site.url }}/images/about/4.JPG"><img src="{{ site.url }}/images/about/4.JPG"></a>
+	<a href="{{ site.url }}/images/about/5.JPG"><img src="{{ site.url }}/images/about/5.JPG"></a>
 </figure>
 <figure class="third">
-	<a href="{{ site.url }}/images/about/6.jpg"><img src="{{ site.url }}/images/about/6.JPG"></a>
-	<a href="{{ site.url }}/images/about/7.jpg"><img src="{{ site.url }}/images/about/7.JPG"></a>
-	<a href="{{ site.url }}/images/about/8.jpg"><img src="{{ site.url }}/images/about/8.JPG"></a>
+	<a href="{{ site.url }}/images/about/6.JPG"><img src="{{ site.url }}/images/about/6.JPG"></a>
+	<a href="{{ site.url }}/images/about/7.JPG"><img src="{{ site.url }}/images/about/7.JPG"></a>
+	<a href="{{ site.url }}/images/about/8.JPG"><img src="{{ site.url }}/images/about/8.JPG"></a>
 	<figcaption>Doha at its full glory.</figcaption>
 </figure>
