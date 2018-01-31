@@ -448,6 +448,7 @@ static ssize_t oni_read(struct file *filp, char __user *buffer, size_t count, lo
 	if( err_count == 0 )
 	{
 		printk(KERN_INFO "Oni Chrdev: Sent %d chars to the user\n", size_of_msg);
+		size_of_msg = 0;
 		return 0;
 	}else
 	{
@@ -471,3 +472,11 @@ static ssize_t oni_write(struct file *filp, const char __user *buffer, size_t co
 	return count;
 }
 </pre>
+
+file source hoàn chỉnh sẽ như sau:
+<pre>
+
+</pre>
+
+### 3.4 Vọc vạch cái device driver vừa viết.
+
