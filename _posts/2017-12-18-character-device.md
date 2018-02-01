@@ -483,7 +483,7 @@ static ssize_t oni_write(struct file *filp, const char __user *buffer, size_t co
 </pre>
 
 file source hoàn chỉnh sẽ như sau:
-```
+{% highlight java %}
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/version.h>
@@ -612,7 +612,7 @@ MODULE_VERSION("0.1");            ///< A version number to inform users
 module_init(oni_init);
 module_exit(oni_exit);
 
-```
+{% endhighlight %}
 
 ### 3.4 Vọc vạch cái device driver vừa viết.
 Bây giờ insert module vào kernel: <code>sudo insmod oni_chardev.ko</code><br/>
