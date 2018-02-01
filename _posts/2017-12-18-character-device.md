@@ -286,35 +286,35 @@ Bây giờ mình sẽ thử tạo một character device driver đơn giản tê
 
 ### 3.1 Khai báo các cấu trúc dữ liệu cần thiết.
 Đầu tiên chúng ta khai báo các hằng số cần thiết cho việc đăng ký device number:<br/>
-<pre>
+{% highlight c %}
 #define MINOR_FIRST 0
 #define MINOR_COUNT 1
 #define DEV_NAME "oni_chrdev"
 #define BUFFER_SIZE 256
-</pre>
+{% endhighlight %}
 Device của chúng ta sẽ alloc minor bắt đầu tư 0, với tối đa là 1 minor.<br/>
 Tiếp theo là các cấu trúc mà mọi cdd đều có, về cơ bản chúng ta sẽ khai báo như sau.:
-<pre>
+{% highlight c %}
 static struct cdev oni_cdev;
 static struct class *oni_class;
 static struct class *oni_device;
 static size_t size_of_msg=0;
-</pre>
+{% endhighlight %}
 Một biến kiểu <code>dev_t</code> để lưu giữ device number mà device được cấp phát.
-<pre>
+{% highlight c %}
 static dev_t oni_device_number;
-</pre>
+{% endhighlight %}
 
 Tiếp theo là cho khai báo các signature của các function được sử dụng bởi file_operations:
-<pre>
+{% highlight c %}
 	static int oni_open(struct inode *, struct file *);
 	static int oni_release(struct inode *, struct file *);
 	static ssize_t oni_write(struct file *, const char __user *, size_t count, loff_t *pos);
 	static ssize_t oni_read(struct file *, char __user *, size_t count, loff_t *pos);
-</pre>
+{% endhighlight %}
 
 Sau khi đã khai báo các signature thì chúng ta sẽ định nghĩa file operation được sử dụng bởi device.
-<pre>
+{% highlight c %}
 struct file_operations oni_fops
 {
 	.owner = THIS_MODULE,
@@ -323,17 +323,17 @@ struct file_operations oni_fops
 	.write = oni_write,
 	.read = oni_read
 };
-</pre>
+{% endhighlight %}
 
 Cuối cùng là biến để lưu giữ chuỗi ký tự:
-<pre>
+{% highlight c %}
 char msg[BUFFER_SIZE];
-</pre>
+{% endhighlight %}
 
 ### 3.2 Đăng ký device driver với kernel.
 Việc đầu tiên khi một device driver được insert vào kernel là kernel sẽ gọi đến hàm init của nó. Hàm init sẽ thực hiện việc đăng ký device number, khởi tạo và đăng ký cấu trúc cdev với kernel, ngoài ra nó cũng có thể đăng ký class và device file cho device. Nếu một device không có device file thì user-app không giao tiếp đọc ghi với nó được(đoán thế), tuy nhiên, linux không yêu cầu chúng ta tạo device file khi init module, thay vào đó, chúng ta có thể tạo ra device file sau bằng command <code>mknod</code>. Trong ví dụ này, mình sẽ tạo luôn device file trong hàm init.<br/>
 Đầu tiên chúng ta cần có một device number cho device của chúng ta. Ở đây, có thể dùng macro MKDEV() nếu như chúng ta đã xác định sẵn một major number cho device, sao cho nó không trùng với major number của các device khác trong hệ thống, mặc nhiên là cách này chỉ dùng được khi device driver của chúng ta chỉ dùng cho một hệ thống cá nhân của riêng mình. Trong các hệ thống public, có nhiều người sử dụng thì chúng ta không thể biết được liệu người dùng có thêm vào hệ thống một device nào khác có major number giống của chúng ta hay không. Do đó chúng ta sẽ sử dụng phương pháp cấp phát động cho device number, phương pháp này, kernel sẽ cung cấp một major number chưa có ai sử dụng cho device của chúng ta. (thật ra là của tui, nhưng mà viết chúng ta cho nó có vần thôi).
-<pre>
+{% highlight c %}
 int ret; 
 ret = alloc_chrdev_region(&oni_device_number, MINOR_FIRST, MINOR_COUNT,DEV_NAME);
 if( ret != 0 )
@@ -341,7 +341,7 @@ if( ret != 0 )
 	printk(KERN_WARNING "Cannot allocate a device number");
 	return ret;
 }
-</pre>
+{% endhighlight %}
 
 Trên đây, chúng ta đã đăng ký một device number có major động và minor number từ 0 đến 0. Biến ret sẽ dùng để lưu giá trị trả về của hàm alloc, nếu ret âm thì tức là có lỗi, lúc này chúng ta sẽ return ngay tắp lự.<br/>
 
@@ -349,7 +349,7 @@ Khi đã có được device number, chúng ta sẽ khởi tạo cấu trúc cde
 <code>cdev_init(&oni_dev, &oni_fops);</code>
 Với dòng code này, chúng ta đã khởi tạo cấu trúc oni_dev và ghi nhớ oni_fops, sẵn sàng cho việc sử dụng sau này.<br/>
 Tiếp theo là thông báo với kernel về sự hiện diện của chúng ta.<br/>
-<pre>
+{% highlight c %}
 ret = cdev_add(&oni_dev, oni_device_number, MINOR_COUNT);
 if( ret != 0 )
 {
@@ -357,10 +357,10 @@ if( ret != 0 )
 	printk(KERN_WARNING "Cannot add device to kernel");
 	return ret;
 }
-</pre>
+{% endhighlight %}
 Dòng này dùng để thêm device được biểu diễn bởi biến <code>oni_dev</code> (chính là device này đây) vào kernel, cũng gần như ngay lập tức, make device live. Nếu như lời gọi hàm thực hiện không thành công thì chúng ta kết thúc quá trình khởi tạo device, đồng thời giải phóng device number đang nắm giữ.<br/>
 Thật ra, chỉ cần như này là device driver đã có thể được insert vào hệ thống với insmod rồi, tuy nhiên chúng ta sẽ tạo class và device file cho nó trong hàm init này luôn.
-<pre>
+{% highlight c %}
 oni_class = class_create(THIS_MODULE, DEV_NAME);
 if (IS_ERR(oni_class))
 {
@@ -369,12 +369,12 @@ if (IS_ERR(oni_class))
 	printk(KERN_WARNING "Cannot create class");
 	return PTR_ERR(oni_class);
 }
-</pre>
+{% endhighlight %}
 Hàm <code>class_create</code> trả về một con trỏ <code>struct class</code>. Vậy class là gì? Cái này không phải class (lớp) trong java hay C++. Cái này tạm gọi là class device.<br>
 Các device trong kernel được chia thành nhiều class. Các device trong cùng 1 class thường có chung một chức năng chính. Bạn có thể xem các class hiện có ở dir: /sys/class
 
 Đối với char device, chúng ta có thể tạo device file bằng cách sau:
-<pre>
+{% highlight c %}
 oni_device = device_create(oni_class, NULL, oni_device_number, NULL, DEV_NAME);
 if (IS_ERR(oni_device))
 {
@@ -384,16 +384,16 @@ if (IS_ERR(oni_device))
 	printk(KERN_WARNING "Cannot create device file");
 	return PTR_ERR(oni_device);
 }
-</pre>
+{% endhighlight %}
 Bằng đoạn code này, kernel sẽ tạo ra file /dev/oni_chrdev, và các user-app có thể giao tiếp với device thông qua file này.
 Đến đây chúng ta hoàn thành hàm init rồi hí hí.
-<pre>
+{% highlight c %}
 	printk(KERN_INFO "Initialized device driver");
 	return 0;
-</pre>
+{% endhighlight %}
 
 Vì hàm exit hiện tại không có nhiều việc để làm nên sẽ nói luôn ở đây:
-<pre>
+{% highlight c %}
 void __exit oni_exit(void)
 {
 	device_destroy(oni_class, oni_device_number);
@@ -401,7 +401,7 @@ void __exit oni_exit(void)
 	cdev_del(&oni_cdev);
 	unregister_chrdev_region(oni_device_number, MINOR_COUNT);
 }
-</pre>
+{% endhighlight %}
 ### 3.3 Các hàm của cấu trúc file_operations
 #### a. open and release
 open(): thực hiện các khởi tạo cơ bản để giúp các tác vụ khác có thể hoạt động sau đó.
@@ -445,7 +445,7 @@ Với mỗi giá trị trả về của hàm read(), có một tác động tư�
 - Trường hợp cá biệt, chakra vẫn còn nhưng bị bakugan phong tỏa huyệt đạo, shinobi sẽ rơi vào trang thái block.
 Mặc dù ở trên có đề cập việc thay đổi file offset, tuy nhiên ví dụ của chúng ta mong muốn là đọc ghi từ đầu file, nên không cần phải update nó làm gì cả, (cả read và write).
 
-<pre>
+{% highlight c %}
 static ssize_t oni_read(struct file *filp, char __user *buffer, size_t count, loff_t *offset)
 {
 	int err_count = 0;
@@ -461,14 +461,14 @@ static ssize_t oni_read(struct file *filp, char __user *buffer, size_t count, lo
 		return -EFAULT;
 	}
 }
-</pre>
+{% endhighlight %}
 b2. write()
 giống read, write có thể truyền ít hơn dữ liệu được yêu cầu, sau đây là các giá trị trả về ở user-space calling tương ứng.
 - Nếu giá trị trả về bằng count thì toàn bộ các bytes được yêu cầu đã truyền thành công.
 - Nếu giá trị trả về là giá trị dương lớn hơn count, thì chỉ một phần chakra được truyền từ cửu vĩ sang naruto. Chương trình (user-space) gần như ngay lập tức cố gắng write phần data còn lại.
 - Nếu giá trị trả về là 0 thì tức là không có ghì để write.
 - Nếu giá trị trả về là âm thì đã có lỗi.
-<pre>
+{% highlight c %}
 static ssize_t oni_write(struct file *filp, const char __user *buffer, size_t count, loff_t *offset)
 {
 	if(copy_from_user(msg, buffer, count))
@@ -480,10 +480,10 @@ static ssize_t oni_write(struct file *filp, const char __user *buffer, size_t co
 	printk(KERN_INFO "Oni Chrdev: receive %zu charaters for the user: %s\n",count,msg);
 	return count;
 }
-</pre>
+{% endhighlight %}
 
 file source hoàn chỉnh sẽ như sau:
-{% highlight java %}
+{% highlight c %}
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/version.h>

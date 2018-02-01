@@ -60,7 +60,7 @@ Ví dụ này sẽ gồm 2 thành phần: <br/>
 - User-space app: oni_app <br/>
 Đầu tiên cần tạo ra 1 file header chứa các biến cần thiết để sử dụng.</br>
 <code>oni_ioctl.h</code><br/>
-<pre>
+{% highlight c %}
 #ifndef ONI_IOCTL_H
 #define ONI_IOCTL_H
 #include <linux/ioctl.h>
@@ -73,14 +73,14 @@ type def struct{
 #define QUERY_GET_VARIABLES _IOR('o',1,birthday *)
 #define QUERY_CLR_VARIABLES _IO('o',2)
 #define QUERY_SET_VARIABLES	_IOW('o',3,birthday *)
-</pre>
+{% endhighlight %}
 Ở file header, mình đã định nghĩa ra một kiểu mới tên là birthday, là một struct gồm 3 interger number. Đây cũng là argument truyền vào cho các lời gọi ioctl ở phần sau. Sau đấy là 3 <b>command number</b> được sử dụng bởi Oni Ioctl. <br/>
 Tất cả các cmd number đều sử dụng chung một magic number là 'o' (nó sẽ tự đổi ra int), trong lý thuyết thì các cmd number của cùng 1 device không bắt buộc phải có magic number giống nhau, nhưng trên thực tế, việc sử dụng 1 magic number duy nhất sẽ giúp code dễ quản lý, đẹp mắt, ảo lòi hơn. <br/>
 Các cmd number có sequence number lần lượt là 1, 2, 3. Ở cmd number đầu tiên, chúng ta khai báo rằng nó sẽ đọc dữ liệu từ device và sử dụng tham số có kiểu birthday. Ở cmd number thứ 2, chúng ta k dùng tham số. (mấy cái này tượng trưng thôi, có dùng IO hết cũng chả chết, nhưng mà code cleaning is good).<br/>
 File header này sẽ được include ở cả ldd và user-space app. <br/><br/><br/>
 Tiếp theo sẽ là file source cho ldd, mình tạo 1 file mới tên là <code>oni_ioctl.c</code><br/>
 Đầu tiên phải include những header cần thiết vào
-<pre>
+{% highlight c %}
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/version.h>
@@ -91,7 +91,7 @@ Tiếp theo sẽ là file source cho ldd, mình tạo 1 file mới tên là <cod
 #include <asm/uaccess.h>
 
 #include "query_ioctl.h"
-</pre>
+{% endhighlight %}
 Tiếp theo chúng ta sẽ define 2 macro cho minor<br/>
 <code>#define FIRST_MINOR 0</code><br/>
 <code>#define MINOR_CNT 1</code><br/>
@@ -106,7 +106,7 @@ Struct class dùng để tạo ra device file trong thư mục /sys/class<br/>
 <code>static int day = 11, month = 02, year = 1993;</code><br/><br/>
 
 Bây giờ đến file_operations, trước hết chúng ta cần declare các hàm sẽ được refer từ file_operations.
-<pre>
+{% highlight c %}
 static int my_open(struct inode *i, struct file *f);
 static int my_close(struct inode *i, struct file *f);
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35))
@@ -114,11 +114,11 @@ static int my_ioctl(struct inode *i, struct file *f, unsigned int cmnd, unsigned
 #else
 static long my_ioctl(struct file *f, unsigned int cmd, unsigned long arg);
 #endif
-</pre>
+{% endhighlight %}
 Hàm my_open và my_close không cần thực hiện tác vụ gì cả, nên chúng ta chỉ cần định nghĩa chúng là các hàm có thân hàm rỗng là được.<br/>
 Hàm my_ioctl có có prototype khác nhau, phục thuộc vào kernel đang sử dụng.<br/>
 Khi đã có các function declaration rồi thì chúng ta có thể khai báo struct file_operations như sau:<br/>
-<pre>
+{% highlight c %}
 statc struct file_operations oni_fops=
 {
 	.owner = THIS_MODULE,
@@ -130,28 +130,28 @@ statc struct file_operations oni_fops=
 	.unlocked_ioctl = my_ioctl
 #endif
 };
-</pre>
+{% endhighlight %}
 
 Đầu tiên khi ldd được insert vào hệt thống, nó sẽ chạy init đầu tiên, nên mình viết hàm init trước cho nó theo thứ tự ahihi. Trước hết là khai báo 2 local variables để lưu giữ result của 1 số lời gọi hàm trong lúc khởi tạo ldd<br/>
-<pre>
+{% highlight c %}
 static void __init oni_init(void)
 {
 	int ret;
 	struct device *dev_ret;
 }
-</pre>
+{% endhighlight %}
 Tiếp theo, chúng ta sẽ đăng ký device number cho driver, sử dụng <code>alloc_chrdev_region. </code><br/>
-<pre>
+{% highlight c %}
 ...
 if((ret = alloc_chrdev_region(&dev, FIRST_MINOR, MINOR_CNT,"query_ioctl"))<0)
 {
 	printk(KERN_WARNING "Cannot register device number range");
 	return ret;
 }
-</pre>
+{% endhighlight %}
 Ở đây chúng ta đăng ký một device driver với major number được cấp phát động và chỉ một minor number duy nhất (0). Hàm <code>alloc_chrdev_region</code> sẽ trả về giá trị âm nếu việc đăng ký thất bại. Device number tạo ra sẽ được lưu vào variable <code>dev</code><br/><br/>
 Tiếp theo là khởi tạo character device với cấu trúc cdev ở trên và file_operations chúng ta đã định nghĩa lúc trước. Sau đó dùng hàm <code>cdev_add</code> để thêm nó device vào system<br/>
-<pre>
+{% highlight c %}
 ...
 cdev_init(&c_dev, &query_fops);
 
@@ -160,10 +160,10 @@ if((ret = cdev_add(&c_dev,dev,MINOR_CNT))<0)
 	printk(KERN_WARNING "Cannot register device to kernel");
 	return ret;
 }
-</pre>
+{% endhighlight %}
 <br/>
 Tạo class cho device, sau bước này, device sẽ xuất hiện trong /sys/class directory. 
-<pre>
+{% highlight c %}
 ...
 if(IS_ERR(c1=class_create(THIS_MODULE,"char")))
 {
@@ -172,10 +172,10 @@ if(IS_ERR(c1=class_create(THIS_MODULE,"char")))
 	printk(KERN_WARNING "Cannot create device class");
 	return PTR_ERR(c1);
 }
-</pre>
+{% endhighlight %}
 Nếu việc tạo class thất bại, thì chúng ta sẽ phải unregister device number range và xóa struct c_dev đã được khởi tạo.<br/><br/>
 Bước cuối cùng trong việc init là tạo device file<br/>
-<pre>
+{% highlight c %}
 ...
 if(IS_ERR(dev_ret = device_create(c1,NULL,dev,NULL,"query")))
 {
@@ -187,10 +187,10 @@ if(IS_ERR(dev_ret = device_create(c1,NULL,dev,NULL,"query")))
 }
 printk(KERN_NOTICE "LDD inserted successfully");
 return 0;
-</pre>
+{% endhighlight %}
 <br/><br/><br/>
 Hàm tiếp theo chúng ta động tới là hàm exit của module. Hàm này cực kỳ đơn giản, chỉ cần phá hết những gì đã làm trong hàm init là được.<i> open và release cũng là một cái tạo ra và một cái đập phá những thứ được tạo ra, tuy nhiên open/release được gọi trên đơn vị fd, còn init/exit là module</i><br/>
-<pre>
+{% highlight c %}
 static void __exit oni_exit(void)
 {
 	device_destroy(c1,dev);
@@ -199,10 +199,10 @@ static void __exit oni_exit(void)
 	unregister_chardev_region(dev, MINOR_CNT);
 	return PTR_ERR(dev_ret);
 }
-</pre>
+{% endhighlight %}
 <br/><br/><br/>
 Bây giờ đến phần chính của bài viết này: IOCTL. Hàm này không có gì ngoài một lệnh switch =))<br/>
-<pre>
+{% highlight c %}
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,35))
 static int my_ioctl(struct inode *i, struct file *f, unsigned int cmnd, unsigned long arg)
 #else
@@ -239,7 +239,7 @@ static long my_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
 	}
 	return 0;
 }
-</pre>
+{% endhighlight %}
 
 Trong hàm my_ioctl, chúng ta sử dụng 1 câu lệnh switch-case để thực hiện các hành động tương ứng với mỗi cmd number đã khai báo ở file header.
 

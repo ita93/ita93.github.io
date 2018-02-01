@@ -22,10 +22,10 @@ Trong character driver, có implement hai hàm: read() và write(). Thử tưở
 Chúng ta sẽ dùng một structure tên là <code>wait_queue_head_t</code> để thực hiện việc sleep của device driver. một queue head có thể được khởi tạo bằng các cách sau:<br/>
 -Initialize statically: <code>DECLARE_WAIT_QUEUE_HEAD(name);</code>
 -Initialize dynamicly: <br/>
-<pre>
+{% highlight c %}
 	wait_queue_head_t my_queue;
 	init_waitqueue_head(&my_queue);
-</pre>
+{% endhighlight %}
 <br/>
 ## 2.Simple Sleep
 -Khi một process sleep, nó rơi vào trạng thái chờ đợi, chờ đợi một điều kiện nào đó sẽ đúng trong tương lại. Như đã đề cập, bất kỳ process nào sleep đều phải kiểm tra để chăc chắn rằng điều kiện nó chờ đợi thực sự được thỏa mãn khi nó tỉnh giấc. <br/>
@@ -52,34 +52,34 @@ Một cách tự nhiên, O_NONBLOCK rất có ý nghĩa đối với <code>open<
 ## 4.Example
 Sau đây mình sẽ trình bày một ví dụ sleep đơn giản.
 Đầu tiên tạo file source code <code>oni_sleep.c</code>. Tiếp theo là include các header cần thiết: <br/>
-<pre>
+{% highlight c %}
 #include <linux/module.h>
 #include <linux/uaccess.h>
-</pre>
+{% endhighlight %}
 
 Tiếp theo chúng ta define các hằng số cần thiết cho việc xác định device number:<br/>
-<pre>
+{% highlight c %}
 #define MINOR_FIRST 0
 #define MINOR_COUNT 1
-</pre>
+{% endhighlight %}
 
 Khai báo các biến cần thiết cho device driver <br/>
-<pre>
+{% highlight c %}
 static struct cdev oni_sleep_cdev;
 static struct class *oni_sleep_class;
 static struct device *oni_sleep_device;
 static dev_t device_number;
 static int sleep_flag=0;
-</pre>
+{% endhighlight %}
 
 Để thực hiện việc sleep, cần phải khai báo một head queue, ở đây mình khai báo head queue bằng cách dùng DECLARE (Statically)
-<pre>
+{% highlight c %}
 DECLARE_WAIT_QUEUE_HEAD(oni_wait_queue);
-</pre>
+{% endhighlight %}
 
 Ở đây ngoài các cấu trúc quen thuộc với một device driver, mình có khai báo thêm biến sleep_flag, biến này sẽ được dùng để làm điểu kiện wake up cho process đã bị sleep trước đó (sleeping process sẽ được đánh thức khi sleep_flag=1)<br/>
 Tiếp đến là định nghĩa 2 function của file_operations: open() và release()
-<pre>
+{% highlight c %}
 int sleep_open(struct inode *node, struct file *filp)
 {
 	//Do nothing at the moment
@@ -91,10 +91,10 @@ int sleep_release(struct inode *node, struct file *filp)
 	//Do nothing at the moment
 	return 0;
 }
-</pre>
+{% endhighlight %}
 Tạm thời 2 function này sẽ không làm gì cả <br/>
 Kế tiếp là function read. Ở đây hàm read sẽ không thực hiện đọc dữ liệu hay làm gì khác cả. Nó chỉ ghi ra các log để trace quá trình sleep và wakeup mà thôi. <br/>
-<pre>
+{% highlight c %}
 ssize_t sleep_read(struct file *filp, char __user *buf, size_t count, loff_t *pos)
 {
 	printk(KERN_INFO "[READ] Enter read function\n");
@@ -104,10 +104,10 @@ ssize_t sleep_read(struct file *filp, char __user *buf, size_t count, loff_t *po
 	sleep_flag = 0;
 	return 0;
 }
-</pre>
+{% endhighlight %}
 Ở hàm read, sau khi in ra 2 log line (dmesg), mình đã block hàm <code>read</code>, và chờ cho điều kiện <code>sleep_flag==1</code> thì sẽ đánh thức nó dậy. Mình sử dụng head queue đã khai báo ở đầu, đưa process vào wait_interruptible, tức là người dùng có thể Ctrl+C để thoát user-app khi nó đang đợi <code>read</code> trả về.<br/>
 Bây giờ, mình sẽ wake up hàm <code>read</code> từ hàm <code>write</code>, hiện tại hàm write cũng chỉ được dùng để đánh thức hàm read từ hàng đợi mà không có ghi dữ liệu gì sất. Mình sẽ dùng <code>wake_up</code> để đánh thức tất cả các entry trung head queue dậy.
-<pre>
+{% highlight c %}
 ssize_t sleep_write(struct file *filp, const char __user *buf, size_t count, loff_t *pos)
 {
 	printk(KERN_INFO "[WRITE] Enter write function\n");
@@ -115,10 +115,10 @@ ssize_t sleep_write(struct file *filp, const char __user *buf, size_t count, lof
 	wake_up(&oni_wait_queue);
 	printk(KERN_INFO "[WRITE] Exit write\n");
 }
-</pre>
+{% endhighlight %}
 
 Chúng ta đã có đầy đủ các file operation cần thiết, bây giờ chúng ta có thể khai báo struct file_operations cho oni_sleep
-<pre>
+{% highlight c %}
 static struct file_operations oni_fops={
 	.open = sleep_open,
 	.release = sleep_release,
@@ -126,10 +126,10 @@ static struct file_operations oni_fops={
 	.write = sleep_write,
 	.owner = THIS_MODULE	
 };
-</pre>
+{% endhighlight %}
 
 Bây giờ chúng ta đã có đủ các thành phần để bắt đầu khởi tạo module, hãy bắt tay vào việc:
-<pre>
+{% highlight c %}
 static int __init oni_sleep_init(void)
 {
 	int ret;
@@ -170,10 +170,10 @@ static int __init oni_sleep_init(void)
 	printk(KERN_INFO "Created device file\n");
 	return 0;
 }
-</pre>
+{% endhighlight %}
 
 Tiếp theo tất nhiên là hàm exit 
-<pre>
+{% highlight c %}
 static void __exit oni_sleep_exit(void)
 {
 	device_destroy(oni_sleep_class, device_number);
@@ -182,17 +182,17 @@ static void __exit oni_sleep_exit(void)
 	unregister_chrdev_region(device_number, MINOR_COUNT);
 	printk(KERN_INFO "Say goodbyte to your hand!\n");
 }
-</pre>
+{% endhighlight %}
 
 Những thứ râu ria khác, nhưng rất cần thiết
-<pre>
+{% highlight c %}
 MODULE_LICENSE("GPL");            ///< The license type -- this affects available functionality
 MODULE_AUTHOR("Oni Ranger");    ///< The author -- visible when you use modinfo
 MODULE_DESCRIPTION("A simple Linux char driver for explain sleeping");  ///< The description -- see modinfo
 MODULE_VERSION("0.1");            ///< A version number to inform users
 module_init(oni_sleep_init);
 module_exit(oni_sleep_exit);
-</pre>
+{% endhighlight %}
 
 Tiếp theo chúng ta cần tạo ra một user-app để tương tác với device driver đã tạo tên là test.c
 ```
@@ -244,7 +244,7 @@ int main(int argc, char* argv[])
 ```
 
 Tiếp theo cần một Makefile để compile những source code dã mổ cò
-<pre>
+{% highlight c %}
 obj-m+=oni_sleep.o
 all:
  make -C /lib/modules/$(shell uname -r)/build/ M=$(PWD) modules
@@ -252,35 +252,35 @@ all:
 clean:
  make -C /lib/modules/$(shell uname -r)/build/ M=$(PWD) clean
  rm test
-</pre>
+{% endhighlight %}
 
 <br/>Bây giờ hãy thử xem nó hoạt động như thế nào.<br/>
 Sau khi đã compile, chúng ta nhận được file oni_sleep.ko và test. Việc tiếp theo là insert oni_sleep: <code>sudo insmod oni_sleep.ko</code><br/>
 Mở một tab mới với thực hiện việc đọc từ device với command: <code>sudo ./test</code><br/>
 Ở tab này bạn sẽ nhìn thấy output như sau:
-<pre>
+{% highlight c %}
 Press anykey to block your read function
 ....
-</pre>
+{% endhighlight %}
 Sau khi bạn gõ Enter, tab này sẽ bị block tại đây thay vì return. Mở một tab khác với thực hiện việc ghi vào device với command: <code>sudo ./test write</code>. Như đã đề cập ở trên, hàm write sẽ unblock hàm read.<br/>
 Bây giờ quay lại tab read, gõ Enter xem process còn bị block hay không? Wth, hàm read vẫn bị block @@. Tất nhiên là thế rồi, vì mặc dù mình đã gọi hàm <code>wake_up</code> để đánh thức hàm read, nhưng điều kiện <code>sleep_flag==1</code> vẫn chưa được thảo mãn nên nó vẫn tiếp tục bị block. Gõ Ctrl+C để kill nó.<br/>
 Bây giờ, mình sẽ set cờ sleep_flag bằng 1 trước khi gọi wake_up, thêm dòng code vào hàm <code>sleep_write</code> như sau:<br/>
-<pre>
+{% highlight c %}
 ......
 sleep_flag = 1;
 wake_up(&oni_wait_queue);
 .............
-</pre>
+{% endhighlight %}
 Bây giờ compile lại, sau đấy insmod và thực hiện test như cũ. Bạn sẽ thấy tab read được unblock sau khi thực hiện <code>sudo ./test write</code>.<br/>
 Bây giờ kiểm tra dmesg:<br/>
-<pre>
+{% highlight c %}
 [READ] Enter read function
 [READ] About to sleep
 [WRITE] Enter write function
 [WRITE] Wake read up ZZZZZZ
 [WRITE] Exit write
 [READ] read woken up
-</pre>
+{% endhighlight %}
 
 Bây giờ, thử xem <code>wait_event</code> khác <code>wait_event_interruptible</code> như thế nào. Thay <i>wait_event_interruptible</i> trong hàm sleep_write thành <i>wait_event</i>, các tham số vẫn dữ nguyên như cũ, compile lại module, và insert nó vào hệ thống. Tiếp theo, thực hiện test bằng command <code>sudo ./test</code>. Bây giờ, user-app sẽ bị block ở đây, bạn ấn tổ hợp Ctrl+C xem có gì xảy ra? @@ không thể kill chương trình được. Đúng vậy, <code>wait_event</code> sẽ không cho phép chúng ta ngắt process đang bị block, khác với <code>wait_event_interruptible</code>.<br/>
 Các hàm <i>wait timeout</i> sẽ return sau một khoảng thời gian(timeout), đơn vị tính là Jiffies 
