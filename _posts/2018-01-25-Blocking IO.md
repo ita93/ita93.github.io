@@ -244,7 +244,7 @@ int main(int argc, char* argv[])
 ```
 
 Tiếp theo cần một Makefile để compile những source code dã mổ cò
-{% highlight c %}
+{% highlight make %}
 obj-m+=oni_sleep.o
 all:
  make -C /lib/modules/$(shell uname -r)/build/ M=$(PWD) modules
