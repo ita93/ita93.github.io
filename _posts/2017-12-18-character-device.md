@@ -335,7 +335,7 @@ Việc đầu tiên khi một device driver được insert vào kernel là kern
 Đầu tiên chúng ta cần có một device number cho device của chúng ta. Ở đây, có thể dùng macro MKDEV() nếu như chúng ta đã xác định sẵn một major number cho device, sao cho nó không trùng với major number của các device khác trong hệ thống, mặc nhiên là cách này chỉ dùng được khi device driver của chúng ta chỉ dùng cho một hệ thống cá nhân của riêng mình. Trong các hệ thống public, có nhiều người sử dụng thì chúng ta không thể biết được liệu người dùng có thêm vào hệ thống một device nào khác có major number giống của chúng ta hay không. Do đó chúng ta sẽ sử dụng phương pháp cấp phát động cho device number, phương pháp này, kernel sẽ cung cấp một major number chưa có ai sử dụng cho device của chúng ta. (thật ra là của tui, nhưng mà viết chúng ta cho nó có vần thôi).
 <pre>
 int ret; 
-ret = alloc_chardev_register(oni_device_number, MINOR_FIRST, MINOR_COUNT,DEV_NAME);
+ret = alloc_chrdev_region(&oni_device_number, MINOR_FIRST, MINOR_COUNT,DEV_NAME);
 if( ret != 0 )
 {
 	printk(KERN_WARNING "Cannot allocate a device number");
@@ -378,7 +378,7 @@ Các device trong kernel được chia thành nhiều class. Các device trong c
 oni_device = device_create(oni_class, NULL, oni_device_number, NULL, DEV_NAME);
 if (IS_ERR(oni_device))
 {
-	class_destroy(oni_class)
+	class_destroy(oni_class);
 	cdev_del(&oni_cdev);
 	unregister_chrdev_region(oni_device_number, MINOR_COUNT);
 	printk(KERN_WARNING "Cannot create device file");
@@ -397,7 +397,7 @@ Vì hàm exit hiện tại không có nhiều việc để làm nên sẽ nói l
 void __exit oni_exit(void)
 {
 	device_destroy(oni_class, oni_device_number);
-	class_destroy(oni_class)
+	class_destroy(oni_class);
 	cdev_del(&oni_cdev);
 	unregister_chrdev_region(oni_device_number, MINOR_COUNT);
 }
@@ -452,7 +452,7 @@ static ssize_t oni_read(struct file *filp, char __user *buffer, size_t count, lo
 	err_count = copy_to_user(buffer, msg, size_of_msg);
 	if( err_count == 0 )
 	{
-		printk(KERN_INFO "Oni Chrdev: Sent %d chars to the user\n", size_of_msg);
+		printk(KERN_INFO "Oni Chrdev: Sent %lu chars to the user\n", size_of_msg);
 		size_of_msg = 0;
 		return 0;
 	}else
@@ -471,9 +471,13 @@ giống read, write có thể truyền ít hơn dữ liệu được yêu cầu,
 <pre>
 static ssize_t oni_write(struct file *filp, const char __user *buffer, size_t count, loff_t *offset)
 {
-	printf(msg, "%s(%zu letters)",buffer,count);
+	if(copy_from_user(msg, buffer, count))
+	{
+		return -EACCES;
+	}
+
 	size_of_msg = strlen(msg);
-	printk(KERN_INFO "Oni Chrdev: receive %zu charaters for the user\n",count);
+	printk(KERN_INFO "Oni Chrdev: receive %zu charaters for the user: %s\n",count,msg);
 	return count;
 }
 </pre>
@@ -484,4 +488,7 @@ file source hoàn chỉnh sẽ như sau:
 </pre>
 
 ### 3.4 Vọc vạch cái device driver vừa viết.
-
+Bây giờ insert module vào kernel: <code>sudo insmod oni_chardev.ko</code><br/>
+Tiếp theo chúng ta ghi một đoạn ký tự vào device: <code>sudo echo "testing">/dev/oni_chardev</code><br/>
+Kiểm tra <code>dmesg</code> xem có gì xảy ra<br/>
+Đọc dữ liệu từ device: <code>cat /dev/oni_chardev</code>
