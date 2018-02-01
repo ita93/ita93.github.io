@@ -195,7 +195,7 @@ module_exit(oni_sleep_exit);
 {% endhighlight %}
 
 Tiếp theo chúng ta cần tạo ra một user-app để tương tác với device driver đã tạo tên là test.c
-```
+{% highlight c %}
 #include<stdio.h>
 #include<stdlib.h>
 #include<errno.h>
@@ -241,7 +241,7 @@ int main(int argc, char* argv[])
 		read_device(fd);
 	}
 }
-```
+{% endhighlight %}
 
 Tiếp theo cần một Makefile để compile những source code dã mổ cò
 {% highlight make %}
