@@ -482,7 +482,8 @@ static ssize_t oni_write(struct file *filp, const char __user *buffer, size_t co
 }
 {% endhighlight %}
 
-file source hoàn chỉnh sẽ như sau:
+File source hoàn chỉnh sẽ như sau:
+
 {% highlight c %}
 #include <linux/module.h>
 #include <linux/kernel.h>
@@ -612,6 +613,15 @@ MODULE_VERSION("0.1");            ///< A version number to inform users
 module_init(oni_init);
 module_exit(oni_exit);
 
+{% endhighlight %}
+
+Chúng ta cần một file Makefile để compile module vừa viết, make file tương đối đơn giản:
+{% highlight make %}
+obj-m+=oni_chrdev.o
+all:
+	make -C /lib/modules/$(shell uname -r)/build/ M=$(PWD) modules
+clean:
+	make -C /lib/modules/$(shell uname -r)/build/ M=$(PWD) clean
 {% endhighlight %}
 
 ### 3.4 Vọc vạch cái device driver vừa viết.
