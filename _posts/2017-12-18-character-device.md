@@ -1,3 +1,10 @@
+---
+layout: post
+
+category: Linux device driver
+
+comments: true
+---
 # Character Device Driver(DRAFT Ver).
 
 Character Device (chardev) là các device được truy cập như một luồng nhị phân (byte stream - tương tự như các file trong máy tính), và character device

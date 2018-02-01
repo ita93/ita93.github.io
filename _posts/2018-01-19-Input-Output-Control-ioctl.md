@@ -1,3 +1,10 @@
+---
+layout: post
+
+category: Linux device driver
+
+comments: true
+---
 # Input/Output Control
 
 Hầu hết các driver cần có khả năng đọc và ghi device - tức là thực hiện các hardware control khác nhau thông quan device driver. Đa phần các device có thể thực hiện các thao tác phức tạp hơn việc chỉ truyền dữ liệu, chẳng hạn như report lỗi, thay đổi baudrate, tự hủy, etc... Những thao tác này thông thường được support bằng command <code>ioctl</code>.

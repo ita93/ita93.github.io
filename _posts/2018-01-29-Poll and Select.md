@@ -1,3 +1,10 @@
+---
+layout: post
+
+category: Linux device driver
+
+comments: true
+---
 # Poll and Select (Tiếp [Non]Blocking I/O)
 
 ## I. Poll and Select

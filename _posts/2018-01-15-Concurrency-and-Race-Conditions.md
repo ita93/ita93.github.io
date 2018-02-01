@@ -1,3 +1,10 @@
+---
+layout: post
+
+category: Linux device driver
+
+comments: true
+---
 # Concurrency and Race conditions(DRAFT Ver).
 
 ## 1. Semaphore trong Linux.
