@@ -483,9 +483,136 @@ static ssize_t oni_write(struct file *filp, const char __user *buffer, size_t co
 </pre>
 
 file source hoàn chỉnh sẽ như sau:
-<pre>
+```
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/version.h>
+#include <linux/fs.h>
+#include <linux/cdev.h>
+#include <linux/device.h>
+#include <linux/err.h>
+#include <linux/uaccess.h>
 
-</pre>
+#define MINOR_FIRST 0
+#define MINOR_COUNT 1
+#define DEV_NAME "oni_chrdev"
+#define BUFFER_SIZE 256
+
+static struct cdev oni_cdev;
+static struct class *oni_class;
+static struct device *oni_device;
+static size_t size_of_msg=0;
+char msg[BUFFER_SIZE]={0};
+
+static dev_t oni_device_number;
+
+static int oni_open(struct inode *, struct file *);
+static int oni_release(struct inode *, struct file *);
+static ssize_t oni_write(struct file *, const char __user *, size_t count, loff_t *pos);
+static ssize_t oni_read(struct file *, char __user *, size_t count, loff_t *pos);
+
+struct file_operations oni_fops=
+{
+	.owner = THIS_MODULE,
+	.open = oni_open,
+	.release = oni_release,
+	.write = oni_write,
+	.read = oni_read
+};
+
+static ssize_t oni_read(struct file *filp, char __user *buffer, size_t count, loff_t *offset)
+{
+	int err_count = 0;
+	err_count = copy_to_user(buffer, msg, size_of_msg);
+	if( err_count == 0 )
+	{
+		printk(KERN_INFO "Oni Chrdev: Sent string %s to the user\n",msg);
+		size_of_msg = 0;
+		return 0;
+	}else
+	{
+		printk(KERN_INFO "Oni Chrdev: Failed to send %d chars to the user\n", err_count);
+		return -EFAULT;
+	}
+}
+
+static ssize_t oni_write(struct file *filp, const char __user *buffer, size_t count, loff_t *offset)
+{
+	if(copy_from_user(msg, buffer, count))
+	{
+		return -EACCES;
+	}
+
+	size_of_msg = strlen(msg);
+	printk(KERN_INFO "Oni Chrdev: receive %zu charaters for the user %s\n",count,msg);
+	return count;
+}
+
+static int oni_open(struct inode *node, struct file *filp)
+{
+	return 0;
+}
+
+static int oni_release(struct inode *node, struct file *filp)
+{
+	return 0;
+}
+
+void __exit oni_exit(void)
+{
+	device_destroy(oni_class, oni_device_number);
+	class_destroy(oni_class);
+	cdev_del(&oni_cdev);
+	unregister_chrdev_region(oni_device_number, MINOR_COUNT);
+}
+
+int __init oni_init(void)
+{
+	int ret; 
+	ret = alloc_chrdev_region(&oni_device_number, MINOR_FIRST, MINOR_COUNT,DEV_NAME);
+	if( ret != 0 )
+	{
+		printk(KERN_WARNING "Cannot allocate a device number");
+		return ret;
+	}
+	cdev_init(&oni_cdev, &oni_fops);	
+	ret = cdev_add(&oni_cdev, oni_device_number, MINOR_COUNT);
+	if( ret != 0 )
+	{
+		unregister_chrdev_region(oni_device_number, MINOR_COUNT);
+		printk(KERN_WARNING "Cannot add device to kernel");
+		return ret;
+	}
+	
+	oni_class = class_create(THIS_MODULE, DEV_NAME);
+	if (IS_ERR(oni_class))
+	{
+		cdev_del(&oni_cdev);
+		unregister_chrdev_region(oni_device_number, MINOR_COUNT);
+		printk(KERN_WARNING "Cannot create class");
+		return PTR_ERR(oni_class);
+	}
+	
+	oni_device = device_create(oni_class, NULL, oni_device_number, NULL, DEV_NAME);
+	if (IS_ERR(oni_device))
+	{
+		class_destroy(oni_class);
+		cdev_del(&oni_cdev);
+		unregister_chrdev_region(oni_device_number, MINOR_COUNT);
+		printk(KERN_WARNING "Cannot create device file");
+		return PTR_ERR(oni_device);
+	}
+	return 0;
+}
+
+MODULE_LICENSE("GPL");            ///< The license type -- this affects available functionality
+MODULE_AUTHOR("Oni Ranger");    ///< The author -- visible when you use modinfo
+MODULE_DESCRIPTION("A simple Linux char driver for explain sleeping");  ///< The description -- see modinfo
+MODULE_VERSION("0.1");            ///< A version number to inform users
+module_init(oni_init);
+module_exit(oni_exit);
+
+```
 
 ### 3.4 Vọc vạch cái device driver vừa viết.
 Bây giờ insert module vào kernel: <code>sudo insmod oni_chardev.ko</code><br/>
