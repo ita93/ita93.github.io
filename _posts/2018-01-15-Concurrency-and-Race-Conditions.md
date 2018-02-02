@@ -117,3 +117,50 @@ b. Tương ứng với các hàm trên chúng ta có 4 hàm để unlock một s
 <br/><br/>no blocking version<br/>
 <code>int spin_trylock(spinlock_t *lock);</code><br/>
 <code>int spin_trylock_bh(spinlock_t *lock);</code><br/>
+
+## 7. Practice make perfect
+Bây giờ đến phần ví dụ, phần này sẽ dùng lại device driver đã viết trong bài [Character device], và thêm phần xử lý miền găng vào. Nhưng trước hết, hãy viết một user-program để việc test được dễ dàng và rõ ràng hơn. Tạo một file code mới có tên là: <code>oni_test_app.c</code>
+{% highlight c %}
+#include<stdio.h>
+#include<stdlib.h>
+#include<errno.h>
+#include<fcntl.h>
+#include<string.h>
+#include<unistd.h>
+ 
+#define BUFFER_LENGTH 256               ///< The buffer length (crude but fine)
+static char receive[BUFFER_LENGTH];     ///< The receive buffer from the LKM
+ 
+int main(){
+   int ret, fd;
+   char stringToSend[BUFFER_LENGTH];
+   printf("Starting device test code example...\n");
+   fd = open("/dev/oni_chrdev", O_RDWR);             // Open the device with read/write access
+   if (fd < 0){
+      perror("Failed to open the device...");
+      return errno;
+   }
+   printf("Type in a short string to send to the kernel module:\n");
+   scanf("%[^\n]%*c", stringToSend);                // Read in a string (with spaces)
+   printf("Writing message to the device [%s].\n", stringToSend);
+   ret = write(fd, stringToSend, strlen(stringToSend)); // Send the string to the LKM
+   if (ret < 0){
+      perror("Failed to write the message to the device.");
+      return errno;
+   }
+ 
+   printf("Press ENTER to read back from the device...\n");
+   getchar();
+ 
+   printf("Reading from the device...\n");
+   ret = read(fd, receive, BUFFER_LENGTH);        // Read the response from the LKM
+   if (ret < 0){
+      perror("Failed to read the message from the device.");
+      return errno;
+   }
+   printf("The received message is: [%s]\n", receive);
+   printf("End of the program\n");
+   return 0;
+}
+{% endhighlight %}
+

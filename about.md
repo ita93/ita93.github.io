@@ -44,5 +44,13 @@ I was born in 1993 spring. I am a developer, with more than 2 years of professio
 	<a href="{{ site.url }}/images/about/6.JPG"><img src="{{ site.url }}/images/about/6.JPG"></a>
 	<a href="{{ site.url }}/images/about/7.JPG"><img src="{{ site.url }}/images/about/7.JPG"></a>
 	<a href="{{ site.url }}/images/about/8.JPG"><img src="{{ site.url }}/images/about/8.JPG"></a>
-	<figcaption>Doha at its full glory.</figcaption>
+	<figcaption>I love trees.</figcaption>
 </figure>
+
+TZCS project.<br/>
+Toshiba appreciates that combining effective mobile working with tight security measures for company data is a major priority for moderm business, so we develop a mobile zero client, designated for operate on Toshiba's lastest standard business laptops. These laptops don't have storage device like SSD or HDD and it doesn't allow any data to be hosted on the device instead, both functionality and data are made available through a VDI, removing threat of malware being stored on the device and data theft in the event of device is lost or stolen. Because everything is hosted on a central server, so these laptops don't need to be build with strong and expensive hardware, but they still get good performance. Technically, these laptops contain a small Linux based OS, that be stored permanently in ROM. When User power on the laptop, I will connect to known SSID and Company's VDI server, then login, only device that is authorised will be allow to access company VDI, all necessary authentication is stored in BIOS level so no one can change it manually. This feature secures the environment from the moment it is power on. 
+TZCS has a small Linux OS, call firmware (only 4MB), It is too small to contain enough software for run a VDI endpoint. So, infact, when user power on the laptop, it will need to download neccessary packages to to make it can work as an Endpoint.
+Every data on laptop will be erase when user turn it off. <br/>
+
+Tokyo broadcasting system.<br/>
+Develop a auto program controller for some Japanese broacasting services
