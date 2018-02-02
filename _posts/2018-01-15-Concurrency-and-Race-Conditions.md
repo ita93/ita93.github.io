@@ -187,4 +187,55 @@ Bây giờ hãy thử một bài test để chứng tỏ tính không đồng b�
 -Mở 2 tab terminal và chạy <code>sudo ./test</code> ở cả 2 tab.<br>
 -Ở tab đầu tiên, nhập vào chuỗi "Tem1", rồi để nó ở đấy, tức là chương trình đã ghi chuỗi "Tem1" và device.<br/>
 -Ở tab 2, nhập vào chuỗi "Temp2", sau đó gõ enter để đọc, thì chương trình sẽ in ra <code>The received message is: []</code><br/>
--Quay lại tab đầu tiên, bây giờ gõ Enter, thì màn hình sẽ in ra <code>The received message is: []</code>. Tức là thay vì in ra chuỗi "Temp1" thì nó lại in ra "Temp2"<br/>. Lý do là vì cả 2 chương trình test đều dùng chung resource là device file <i>oni_chrdev</i>. Chương trình 2 chạy sau, nên hàm write của nó đã overwrite giá trị biến <code>msg</code>. Sau đó khi p2 thực hiện hàm read, nó cũng xóa luôn msg, nên p1 thực hiện hàm read sau sẽ chỉ đọc được một chuỗi rỗng, ngược lại nếu thực hiện <code>read</code> của p1 trước p2, thì giá trị in ra cũng là [Temp2] chứ không phải [Temp1] như mong đợi.
+-Quay lại tab đầu tiên, bây giờ gõ Enter, thì màn hình sẽ in ra <code>The received message is: []</code>. Tức là thay vì in ra chuỗi "Temp1" thì nó lại in ra "Temp2"<br/>. Lý do là vì cả 2 chương trình test đều dùng chung resource là device file <i>oni_chrdev</i>. Chương trình 2 chạy sau, nên hàm write của nó đã overwrite giá trị biến <code>msg</code>. Sau đó khi p2 thực hiện hàm read, nó cũng xóa luôn msg, nên p1 thực hiện hàm read sau sẽ chỉ đọc được một chuỗi rỗng, ngược lại nếu thực hiện <code>read</code> của p1 trước p2, thì giá trị in ra cũng là [Temp2] chứ không phải [Temp1] như mong đợi.<br/><br/>
+
+Để giải quyết vấn đề này, chúng ta sẽ chỉ cho phép một instance của device file (fd) được mở tại cùng 1 thời điểm. Mình sẽ khai báo một mutex và lock nó ở hàm open và unlock ở hàm release. Đầu tiên phải thêm header chứa mutex vào và định nghĩa 1 mutex để sử dụng:<br/>
+
+{% highlight c %}
+#include <linux/mutex.h>
+........
+static DEFINE_MUTEX(oni_mutex);
+{% endhighlight %}
+
+<br/>Bây giờ cần sửa hàm <code>oni_open</code>, hiện tại hàm này đang không làm gì cả. Hàm này sẽ kiểm tra xem mutex có đang vô chủ không, nếu có thì không cần làm gì cả, ngược lại, nó sẽ return lỗi device file đang bận và không cho phép user-app mở device file.<br/>
+
+{% highlight c %}
+static int oni_open(struct inode* node, struct file *filp)
+{
+	if(!mutex_trylock(&oni_mutex))
+	{
+		printk(KERN_ALERT "Oni chardev: Device in use by another process");
+		return -EBUSY;
+	}
+	return 0;
+}
+{% endhighlight %}
+
+<br/>Đến đây, nếu một process "P1" dành được mutex, nó sẽ mở được device file, nhưng các process khác sẽ không bao giờ động đến device file được, kể cả khi P1 đã đóng device file, vì hiện tại, mình chưa tạo đoạn code giải phóng mutex. Để làm điều này, mình sửa hàm <code>oni_release</code> như sau:<br/>
+
+{% highlight c %}
+static int oni_open(struct inode* node, struct file *filp)
+{
+	mutex_unlock(&oni_mutex);
+	return 0;
+}
+{% endhighlight %}
+
+Compile lại device driver và insert nó vào kernel. Mở 2 tab terminal. Ở tab đầu tiên chạy 1 process test:<br/>
+<code>sudo ./test</code>
+Kết quả hiện ra như sau:
+{% highlight shell %}
+Starting device test code example...
+Type in a short string to send to the kernel module:
+{% endhighlight %}
+<br/>
+Mở tiếp 1 process khác ở tab thứ 2: <code>sudo ./test</code>. Kết quả hiện ra như sau:<br/>
+{% highlight shell %}
+Starting device test code example...
+Failed to open the device ...: Device or resource busy.
+{% endhighlight %}
+
+Như vậy, với việc thêm Mutex vào hàm open và release, bây giờ chỉ có 1 fd có thể được mở tại cùng một thời điểm.
+
+
+
