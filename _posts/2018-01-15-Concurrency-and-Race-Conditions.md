@@ -164,3 +164,22 @@ int main(){
 }
 {% endhighlight %}
 
+Compile file test vừa tạo bằng command sau:<br/>
+{% highlight shell %}
+$gcc oni_chrdev_test.c -o test
+{% endhighlight %}
+
+Bây giờ insert module vào kernel và chạy thử file test bằng quyền sudo, thực hiện các bước theo chỉ dẫn in ra, nhận được kết quả như sau:<br/>
+{% highlight shell %}
+$ sudo ./test
+$ Starting device test code example...
+$ Type in a short string to send to the kernel module"
+$ Linux kernel
+$ Writing message to the device [Linux kernel]
+$ Press ENTER to read back from the device...
+$ Reading from the device...
+$ The received message is: [nguyen phi]
+$ End of the program
+{% endhighlight %}
+
+Giải thích: khi chạy file test, nó sẽ yêu cầu nhập vào một string ngắn từ bàn phím, string này sẽ được lưu copy vào kernel space và lưu ở biến <code>msg</code> của module. Sau đó, khi người dùng ấn Enter, giá trị của msg sẽ được copy ngược lại ra user-app và in ra màn hình.
