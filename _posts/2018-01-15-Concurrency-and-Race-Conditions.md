@@ -75,7 +75,7 @@ Spinlock được tạo ra để hướng đến việc sử dụng trên multip
 
 ## 4. Spinlock API
 file header <code>linux/spinlock.h</code><br/>
-Khởi tạo spinlock ở compile time: 	<code>spinlock_t my_lock = SPIN_LOCK_UNLOCKED;</code><br/>
+Khởi tạo spinlock ở compile time: 	<code>DEFINE_SPINLOCK(lock);</code><br/>
 Khởi tạo spinlock ở runtime:		<code>void spin_lock_init(spinlock_t *lock);</code><br/>
 Trước khi vào miền găng, cần phải dành được lock bằng lời gọi hàm sau:<br/>
 <code>spin_lock(spinlock_t *lock);</code><br/>
@@ -235,7 +235,25 @@ Starting device test code example...
 Failed to open the device ...: Device or resource busy.
 {% endhighlight %}
 
-Như vậy, với việc thêm Mutex vào hàm open và release, bây giờ chỉ có 1 fd có thể được mở tại cùng một thời điểm.
+Như vậy, với việc thêm Mutex vào hàm open và release, bây giờ chỉ có 1 fd có thể được mở tại cùng một thời điểm.<br/><br/>
+Tiếp theo, thay vì dùng Mutex, hãy thử dùng spinlock. Thay header <code>linux/mutex.h</code> bằng <code>linux/spinlock.h>.<br/>
+Cũng giống như Mutex, để dùng được spinlock, ta cần định nghĩa nó trước thay dòng <code>DEFINE_MUTEX(oni_mutex></code> bằng <code>DEFINE_SPINLOCK(my_lock);</code><br/>
+Sửa nội dung hàm open và release thành như sau:
 
+{% highlight c %}
+static int oni_open(struct inode* node, struct file *filp)
+{
+	spin_lock(&my_lock);
+	return 0;
+}
+{% endhighlight %}
+<br/>
+{% highlight c %}
+static int oni_open(struct inode* node, struct file *filp)
+{
+	spin_lock(&my_lock);
+	return 0;
+}
+{% endhighlight %}
 
-
+Với code này, khi mở một process test thứ 2, nó sẽ phải đợi (spin) đến khi process đầu tiên đóng device file thì nó mới được mở device file để thực hiện các tác vụ.
