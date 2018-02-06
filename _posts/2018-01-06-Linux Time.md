@@ -89,3 +89,57 @@ struct timespec current_kernel_time(void);
 ## 4.1. Viết module để nghịch cái Time này (pending)
 
 ## 5. Delaying Execution.
+Cũng giống như đối với các user-app thông thường, device driver đôi khi cũng cần delay việc thực hiện một đoạn code trong một khoảng thời gian vì một số lý do nào đó, tuy nhiên, cơ bản nhất vẫn là chờ đợi hardware thực thi một số task. Trong kernel có một số kỹ thuật khác nhau để thực hiện việc delay này, phần này sẽ tìm hiểu về các kỹ thuật đó.<br/>
+## 5.1 Long Delays.
+Long delay là khoảng delay nhiều hơn một clock tick (muti-jiffies). Sau đây là các kỹ thật để thực hiện long delay
+### a. Busy waiting.
+-Cách này không được recommend.<br/>
+-Phương pháp là thực hiện một vòng lặp, duyệt qua các giá trị của jiffies đến khi thỏa mãn điều kiện.<br/>
+-Sai số thời gian có thể cao<br/>
+{% highlight c %}
+while(time_before(jiffies,j1))
+	cpu_relax();
+{% endhighlight %}
+<code>cpu_relax</code> là một lười gọi phụ thuộc vào arch, mục đích của nó là thông báo với processor là không làm gì cả. Trong các hyperthreaded system, nó có thể nhường core cho thread khác. Chỉ nhìn vào code, cũng thấy là nó ảnh hưởng lớn để performance, tốt nhất là nên bỏ qua nó. Nếu kernel không phải là preemptive opration, thì vòng lặp sẽ hoàn toàn lock processor cho đến khi nó kết thúc.<br/>
+Tệ hơn nữa, nếu interrupt bị disable khi processor đang ở trong loop, jiffies sẽ không còn được update nữa, vòng lặp sẽ là vĩnh cửu và không còn cách nào khác là phải reset máy.<br/>
+
+### b. Yielding the processor.
+Phương pháp này cũng tương tự busy wait, tuy nhiên thay vì giữ processor và không làm gì cả, thì chúng ta sẽ giải phóng nó, và cho người khác sử dụng. 
+{% highlight c %}
+while(time_before(jiffies,j1))
+	schedule();
+{% endhighlight %}
+Tuy nhiên, giải pháp này vẫn chưa tối ưu. Mặc dù process chỉ release cpu nhưng nó vẫn nằm trong run queue, tức là nó vẫn chạy.
+
+### c. Timeouts.
+-Cách tốt nhất để thực hiện delay là yêu cầu kernel làm việc đó cho bạn. Có hai cách để setup timeouts dựa vào jiffies, tùy thuộc vào việc driver có đang đợi event nào hay không.<br/>
+-Nếu driver sử dụng một wait queue để đợi một event nào đấy, nhưng bạn cũng muốn chắc chắn là nó sẽ chỉ chạy trong một khoảng thời gian nhất định, thì có thể dùng <code>wait_event_timeout</code> hoặc <code>wait_event_interruptible_timout</code>. (Đã trình bày trong bài Blocking IO).<br/>. Nếu thời gian quá timeout thì function trả về 0, nếu process được đánh thức bởi condition thì nó trả về giá trị bằng với giá trị jiffies còn chưa chạy đến. Giá trị trả về không bao giờ là âm.
+-Nếu driver không chờ đợi sự kiện nào đánh thức nó mà chỉ muốn delay việc thực hiện một khoảng thời gian nhất định, thì driver có thể dùng hàm <code>schedule_timeout</code>
+{% highlight c %}
+#include <linux/sched.h>
+signed long schedule_timout(signed long timeout);
+{% endhighlight %}
+
+Giá trị trả về luôn là 0 nếu timeout được reach. <br/>
+Để thực hiện được <code>schedule_timeout</code>, việc đầu tiên cần làm là khai báo state của process <code>set_current_state(TASK_INTERRUPTIBLE);</code>
+
+## 5.2 Short delays
+Khi device driver cần xử lý latencies trong hardware của nó (hardware của device), delays thường là vài microseconds là cùng, trường hợp này không thẻ dụng clock tick được.
+Các function dùng cho short delays:
+{% highlight c %}
+#include <linux/delay.h>
+void ndelay(unsigned long nsecs);
+void udelay(unsigned long usecs);
+void mdelay(unsigned long msecs);
+{% endhighlight %}
+Một số arch không định nghĩa <code>ndelay</code> và <code>mdelay</code>, trong trường hợp này, kernel sẽ cung cấp các hàm mặc định dựa vào <code>udelay</code>.<br/>
+Vậy <code>udelay</code> được implement như nào? Nó sử dụng software loop dựa vào tốc độc của processor được tính ở boot time, bằng cách sử dụng giá trị <code>int loops_per_jiffy</code>. Để tránh integer overflow trong khi tính ở vòng loop, <code>udelay</code> áp một cận trên cho các giá trị truyền vào, nếu bạn sử dụng giá trị vượt quá cận này thì sẽ bị báo: <code>__bad_udelay</code>.<br/>
+Cần phải nhơ là cả 3 delay functions này đều là busy-waiting, các task khác không thể chạy trong time lapse. Do đó, chúng ta chỉ nên sử dụng chúng khi không còn lựa chọn nào khác.<br/>
+Vậy nếu muốn delay thì chúng ta làm thế nào? Câu trả lời là linus cho chúng ta 3 quyền năng khác để làm điều này mà không sử dụng đến busy-wait:<br/>
+{% highlight c%}
+void msleep(unsigned int milsec);
+unsigned long msleep_interruptible(unsigned int milsec);
+void ssleep(unsigned int secs);
+{% endhighlight %}
+
+#6. Kernel Timers.
