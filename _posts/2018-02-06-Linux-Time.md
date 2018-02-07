@@ -142,4 +142,42 @@ unsigned long msleep_interruptible(unsigned int milsec);
 void ssleep(unsigned int secs);
 {% endhighlight %}
 
-#6. Kernel Timers.
+##6. Kernel Timers.
+Nếu muốn lên kế hoạch cho một hành đồng xảy ra sau, mà không block process, kernel time là giải pháp tốt nhất. Kernel timer được sử dụng để lập lịch cho việc thực thi của một function sẽ diễn ra tại một thời điểm cụ thể trong tương lai, dựa vào <b>clock tick</b>, và có thể được sử dụng cho nhiều task khác nhau; ví dụ như tắt motor đĩa, hay nói chung là thực hiện các thao tác phần cứng gì đấy sau thời điểm device driver đã kết thúc.<br/>
+Kernel timer là một cấu trúc dữ liệu, nó sẽ ra lệnh cho kernel thực thi một hàm được người dùng định nghĩa, tại thời điểm trong tương lai do người dùng hẹn trước và với tham số mà người dùng truyền vào (lưu ý người dùng ở đây không phải user-space mà là driver-writer). Nó được implement trong các file <code>linux/timer.h</code> và <code>kernel/timer.c</code>.<br/><br/>
+Các function được lên lịch để chạy hầu như chắc chắn không chạy( sử dụng processor resource) trong khi process đăng ký nó (process gọi thực hiện việc schedule cho function) đang thực thi. Thay vào đó, chúng chạy một cách không đồng bộ. Tức là khi timer chạy thì tiến trình đã thực hiện hẹn giờ nó có thể đang ngủ, đang thực thi ở một processor khác, hoặc có khi đã ngỏm.<br/><br/>
+Kernel timers được chạy như là kết quả của một "software interrrupt".<br/>
+Các hàm được truyền vào timer phải là atomic.<br/>
+Kernel timer chạy bên ngoài proccess context, nên cần thỏa mãn một số luật sau:<br/>
+-Không được truy cập đến user-space. Bởi vì đây không phải process context nên không có cách nào liên kết đến user-space được.<br/>
+-<code>current</code> pointer không còn có ý nghĩa nữa và không thể sử dụng vì đây không có cái process nào cả.<br/>
+-Không được phép sleep hoặc thực hiện bất kỳ schedule nào.<br/><br/>
+Kernel code có thể kiểm tra xem nó có đang chạy trong interrupt context hay không bằng hàm <code>in_interrupt()</code>, hàm này trả về giá trị khác không nếu processor đang chạy trong interrupt context bất kể đó là hardware interrupt hay software interrupt.<br/>
+Còn một hàm khác nữa là <code>in_atomic()</code>, nó trả về giá trị khác không nếu scheduling là không được phép.<br/><br/>
+
+Một lưu ý quan trọng về kernel timer là nó cho một một task có thể đăng ký chính nào vào timer.<br/>
+
+##6.1 Timer API.
+Linux kernel cung cấp cho driver một số tiện ích để khai báo, đăng ký và xóa bỏ kernel timer. Tất cả được khai báo trong header <code>linux/timer.h</code>. 
+{% highlight c %}
+struct timer_list{
+	/*...*/
+	unsigned long expires;
+	void(*function)(unsigned long);
+	unsigned long data;
+}
+{% endhighlight %}
+
+Cấu trúc này bao gồm nhiều trường hơn thế này, nhưng ở đây chỉ nêu ra những trường có thể được truy cập từ bên ngoài timer code, ý nghĩa cụ thể như sau:<br/>
+<code>expires</code> : giá trị <code>jiffies</code> mà timer sẽ chạy( relative). Giá trị của expires không phải là <code>jiffies_64</code> vì kernel developer không muốn timer phải đợi quá lâu và 64-bit operations chậm trên nền tảng 32 bit.<br/>
+<code>function</code> : hàm thực thi của timer, với một tham số kiểu long. Nếu muốn truyền nhiều thông tin đến function thì chúng ta có thể tạo ra một struct rồi truyền con trỏ của nó vào hàm. <br/><br/>
+Trước khi sử dụng, struct phải được khởi tạo. Bước này đảm bảo rằng tất cả các trường được setup đúng. Việc khởi tạo được thực hiện bằng một trong hai macro sau.
+{% highlight c %}
+void init_timer(struct timer_list *timer);
+struct timer_list TIMER_INITIALIZER(_function, _expires, _data);
+{% endhighlight %}
+Sau khi đã khởi tạo, cần phải add timer vào luồng chạy.
+{% highlight c %}
+void add_timer(struct timer_list *timer);
+int del_timer(struct timer_lít *timer);
+{% endhighlight %}
