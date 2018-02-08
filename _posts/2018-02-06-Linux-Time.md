@@ -181,3 +181,5 @@ Sau khi đã khởi tạo, cần phải add timer vào luồng chạy.
 void add_timer(struct timer_list *timer);
 int del_timer(struct timer_lít *timer);
 {% endhighlight %}
+
+## 6.2 Ví dụ 
