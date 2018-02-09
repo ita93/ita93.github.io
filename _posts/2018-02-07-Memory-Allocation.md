@@ -44,3 +44,35 @@ Kernel chỉ có thể cấp phát một mảng cố định về kích thước
 memory chunk được cấp phát bởi <i>kmalloc</i> có giới hạn tùy thuộc vào config và arch, lớn nhất là 128KB thì phải. Trong trường hợp cần nhiều bộ nhớ hơn, thì <code>kmalloc</code> không phải là lựa chọn tốt nhất.<br/>
 
 ## 3. Lookaside caches.
+<i>Lookaside cache</i> là một pool đặc biệt, được sử dụng cho các high-volume object (các object sử dụng nhiều bộ nhớ).<br/>
+Cache manager trong kernel được gọi là slab allocator, khai báo trong <code>linux/slab.h</code> header. Slab allocator implement các cache có kiểu dữ liệu <code>kmem_cache_t</code>; chúng được tạo ra bằng cách gọi hàm <code>kmem_cache_create</code>. Prototye như sau:
+{% highlight c %}
+kmem_cache_t *kmem_cache_create(const char *name, size_t size,
+								size_t offset,
+								unsigned long flags,
+								void (*constructor)(void *, kmem_cache_t *, unsigned long flags),
+								void (*constructor)(void *, kmem_cache_t *, unsigned long flags));
+{% endhighlight %}
+
+-Hàm này tạo ra một cache object, cache object này có thể host một số lượng bất kỳ các vùng nhớ có cùng kích thước, được chỉ ra trong tham số <code>size</code>.<br/>
+-Tham số <code>name</code> hoạt động như một housekeeping cho cache và các function (cons, des). Nó rất hữu ích trong việc theo dõi các vấn đề xảy ra nhờ việc nắm giữ được đầy đủ các thông tin cần thiết. Thông thường, nó là tên của struct được cache. Cache giữ một contror tới <code>name</code> thay vì copy nó, do đó driver nên truyền một pointer vào <code>name</code> trong static storage.<br/>
+-Tham số <code>offset</code> là offset của object đầu tiên trong page; thông thường sẽ là 0.<br/>
+-Tham số <code>flags</code> : việc cấp phát sẽ được thực hiện như thế nào và nó là bitmask của các flags sau:<br/>
+<code>SLAB_NO_REAP</code> Bảo vệ cache khỏi việc bị giảm dung lượng khi system tìm kiếm bộ nhớ cho những requester mới. Việc sử dụng cờ này là ý tồi, vì nó gây ra tình trạng process có mem thì không dùng đến, trong khi các process không có mem thì tìm không ra.<br/>
+<code>SLAB_HWCACHE_ALIGN</code><br/>
+<code>SLAB_CACHE_DMA</code><br/><br/>
+Constructor và destructor là optional.<br/>
+Constructor và destructor có thể hữ ích trong một số trường hợp, nhưng có một số điểm cần lưu ý. Một constructor được gọi khi mem của một tập các objects được allocated; bởi vì mem đó có thể giữ nhiều object nên constructor có thể được gọi nhiều lần, nên ta không thể giả thuyết là constructor sẽ được gọi ngay lập tức sau khi cấp phát bộ nhớ cho một object. Tương tự, destructor có thể được gọi ở bất kỳ thời điểm nào trong tương lai, không nhất thiết phải là ngay lập tức sau khi một object được giải phóng. <br/>
+Một khi cache of objects đã được tạo, chúng ta có thể cấp phát các mem object từ cache này bằng cách gọi <code>kmem_cache_alloc</code>:
+{% highlight c %}
+void *kmem_cache_alloc(kmem_cache_t *cache, int flags);
+{% endhighlight %}
+Để free một mem object:
+{% highlight c %}
+void kmem_cache_free(kmem_cache_t *cache, const void *obj);
+{% endhighlight %}
+Khi driver code làm xong việc với cache, nó phải free cache:
+{% highlight c %}
+int kmem_cache_destroy(kmem_cache_t *cache);
+{% endhighlight %}
+
