@@ -76,3 +76,59 @@ Khi driver code làm xong việc với cache, nó phải free cache:
 int kmem_cache_destroy(kmem_cache_t *cache);
 {% endhighlight %}
 
+## 4. Memory Pools
+Đôi lúc, việc cấp phát bộ nhớ bắt buộc phải không được thất bại. Để handle được các trường hợp này, linus cung cấp một abstraction tên là <i>mempool</i>. Một mempool thực tế chỉ là một dạng của <i>lookaside cache</i>, nó luôn luôn có gắng gữ lại một list các vùng nhớ free để dùng cho trường hợp khẩn cấp.<br/>
+Để tạo một mempool, cần thực hiện như sau:
+{% highlight c %}
+#include <linux/mempool.h>
+
+mempool_t *mempool_create(int min_nr, mempool_alloc_t *alloc_fn, mempool_free_t *free_fn, void *pool_data);
+{% endhighlight %}
+ở đây <code>min_nr</code> là lượng allocated object ít nhất mà pool cần phải đảm bảo.
+<code>alloc_fn</code> là hàm thực hiện việc cấp phát thực sự, có prototype như sau:
+{% highlight c %}
+typedef void *(mempool_alloc_t)(int gfp_mask, void *pool_data);
+{% endhighlight %}
+<br/>
+<code>free_fn</code> là hàm thực hiện việc giải phóng thực sự, có prototype như sau:
+{% highlight c %}
+typedef void *(mempool_free_t)(void *element, void *pool_data);
+{% endhighlight %}
+<br/>
+Thông thường, chúng ta sẽ không viết hàm free_fn và alloc_fn làm gì cả, mà sẽ sử dụng các hàm có sẵn của slab allocator:
+{% highlight c %}
+cache = kmem_cache_create(. . .);
+pool = mempool_create(MY_POOL_MINIMUM, mempool_alloc_slab, mempool_free_slab, cache);
+{% endhighlight %}
+Sau khi pool đã được tạo, các object có thể được allocate và free bằng cách sử dụng hai hàm sau:
+{% highlight c %}
+void *mempool_alloc(mempool_t *pool, int gfp_mask);
+void mempool_free(void *element, mempool_t *pool);
+{% endhighlight %}
+Mempool có thể được resize bằng hàm 
+{% highlight c %}
+int mempool_resize(mempool_t *pool, int new_min_nr, int gfp_mask);
+{% endhighlight %}
+Khi không còn sử dụng nữa, hãy giải phóng pool cho hệ thống:
+{% highlight c %}
+void mempool_destroy(mempool_t *pool);
+{% endhighlight %}
+Lưu ý là cần phải return tất các các allocated object (mempool_free) trước khi giải phóng pool, hoặc sẽ gặp kernel oops. 
+
+## 5. get_free_page and Friends.
+Nếu một module muốn sử dụng rất nhiều mem, thì tốt nhất là nên sử dụng kỹ thuật page-oriented. Để allocate page, sử dụng một trong các hàm sau:
+{% highlight c %}
+get_zeroed_page(unsigned int flags);
+/*Trả về con trỏ đến page mới với các mem slot đều là 0*/
+__get_free_page(unsigned int flags);
+/*Trả về con trỏ đến page mới nhưng không clear các mem slot */
+__get_free_pages(unsigned int flags, unsigned int order);
+/*Trả về con trỏ đến byte đầu tiên của một loạt page mới nhưng không clear các mem slot. Các page này là liên tục trên bộ nhớ vật lý */
+{% endhighlight %}
+
+Cả 3 hàm trên, tham số <code>flags</code> đều giống kmalloc, còn <code>order</code> ở cuối là số page sẽ get, theo quy tắc số page = 2^order. thường thì ta dùng order bằng 0 hoặc 3, tức là 1 page hoặc 8 page liên tục, việc dùng số order quá cao sẽ khiến việc lấy page thất bại.<br/>
+Sau khi đã sử dụng xong, cần phải free page, bằng cách dùng một trong 2 hàm sau:
+{% highlight c %}
+void free_page(unsigned long addr);
+void free_pages(unsigned long addr, unsigned long order);
+{% endhighlight %}
