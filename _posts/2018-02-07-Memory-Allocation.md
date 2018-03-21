@@ -132,3 +132,5 @@ Sau khi đã sử dụng xong, cần phải free page, bằng cách dùng một 
 void free_page(unsigned long addr);
 void free_pages(unsigned long addr, unsigned long order);
 {% endhighlight %}
+
+## 6. Per-CPU variables.
