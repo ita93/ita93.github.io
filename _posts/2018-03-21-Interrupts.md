@@ -11,6 +11,7 @@ comments: true
 Trong máy tính luôn có các thiết bị ngoại vi, các thiết bị này có tốc độ hoạt động chậm hơn processor rất nhiều, vì thế hầu như luôn luôn processor cần chờ đợi các sự kiện ngoại vi, bởi thế cần có một cách nào đó để các thiết bị này thông báo cho processor mỗi khi có một sự kiện nào đấy xảy ra với nó. <br/>
 
 Cách liên lạc đấy chính là <b>Interrupt</b>. Một <i>interrupt</i> đơn giản là một tín hiệu (signal) mà các thiết bị phần cứng (hoặc có thể là phần mềm) gửi khi nó muốn gây sự chú ý với processor (thả thính). Linux xử lý các interrupt giống như cách nó xử lý các singal trong user space. Một driver chỉ cần đăng ký một handler cho các interrupt của nó, và xử lý chúng một cách hợp lý khi xảy ra.<br/>
+Bài viết này sẽ tìm hiểu cơ bản về interrupt cùng ví dụ xử lý keyboard interrupt cho máy PC intel.
 
 <span style="color:blue">Lưu ý</span>: Interrupt handler chạy trong interrupt context (song song với context hiện tại, chạy một cách đồng thời).<br/><br/>
 
@@ -110,3 +111,94 @@ Disable một Toàn bộ các interrupt
 (Cái này không tốt gì cả, không nên biết).
 
 ## 4. Top và Bottom Halves
+Một trong những vấn đề chính đối với interrupt handling đó là làm cách nào để thực hiện tác task dài trong một handler. Thông thường, một lượng lớn công việc phải làm đối với device interrupt signal, tuy nhiên, interrupt handler cần hoàn thành nhanh nhất có thể, để đảm bảo là nó không block các interrupt khác quá lâu.<br/>
+Để giải quyết vấn đề này, Linux (cũng như nhiều hệ điều hành khác), chia interrupt handler thành 2 halves (hai nửa, halves là số nhiều của half), gọi là <span style="color:blue">top half</span> và <span style="color:blue">bottom half</span>. Trong đó top half sẽ thực hiện việc phản ứng với interrupt, đây là hàm handler mà chúng ta đăng ký trong request_irq(). Trong khi bottom half được lên lịch bởi top half để thực hiện sau đó, tại thời điểm an toàn hơn. Bottom half được thực hiện trong bối cảnh mà tất cả các interrupt đều được enable( không bị block). Thông thường, top half sẽ lưu device data vào một device-specific bufer, lên lịch cho bottom half, và kết thúc công việc: rất nhanh gọi. Bottom half sau đó sẽ thực hiện những công việc yêu cầu, chẳng hạn như đánh thức các process khác, sử dụng I/O... Ngoài ra, bằng cách này, top half có thể phục vụ một interrupt mới trong khi bottom half vẫn đang thực hiện. <br/>
+Bottom half được thực hiện bằng Tasklet hoặc workqueues. Tasklets = all atomic >< Workqueues = có thể sleep.
+(Pending)
+### 4.1 Tasklet
+Tasklet luôn luôn chạy trên một CPU duy nhất, đó là CPU đã lập lịch nó, và nhận một tham số kiểu long không dấu. Tuy nhiên, lập lịch ở đây không có nghĩa là chỉ định thời điểm chạy cho tasklet, thay vào đó, đơn giản chỉ là chúng ta thông báo cho kernel rằng hãy chạy function này sau đó, bất cứ lúc nào. Ứng dụng điều này, chúng ta có thể nhận interrupt, phản hồi cho device, lập lịch tasklet rồi exit, tasklet sẽ tự chạy sau đó (nhỏ 1 hơn 1 time tick).<br/>
+
+Bây giờ, thử thực hiện một tasklet cực kỳ đơn giản.<br/>
+Tạo file simple_tasklet.c
+
+Include các header cần thiết vào
+{% highlight c %}
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/interrupt.h>
+
+MODULE_LICENSE("GPL");
+{% endhighlight %}
+
+Tiếp theo khai báo một tring làm data, chúng ta sẽ in ra nó trong tasklet.
+{% highlight c %}
+char tasklet_data[]="Something here";
+{% endhighlight %}
+
+Tiếp theo là khai báo hàm callback cho tasklet, hàm này thực hiện các chức năng chính của tasklet.
+{% highlight c %}
+void tasklet_function(unsigned long data)
+{
+	printk("%s\n",(char*)data);
+	return;
+}
+{% endhighlight %}
+Hàm này nhận một time số kiểu unsigned long, về cơ bản chúng ta sẽ truyền mảng ký tự đã khai báo vào làm tham số, sau đấy chúng ta convert nó ngược lại và in ra.
+
+Khởi tạo tasklet struct bằng macro - cách này chỉ dùng khi muốn khởi tạo tasklet struct ở compile time
+{% highlight c %}
+DECLARE_TASKLET(my_tasklet, tasklet_function, (unsigned long)&tasklet_data);
+{% endhighlight %}
+Các tham số lần lượt là: tên của struct muốn khởi tạo, hàm call back của tasklet struct và tham số đầu vào của hàm tasklet callback. 
+Trong hàm init, chúng ta lập lịch cho tasklet như sau:
+{% highlight c %}
+tasklet_schedule( &my_tasklet );
+{% endhighlight %}
+Bây giờ khi load module vào thì dmesg sẽ in ra dòng: "Something here", và chúng ta gần như không nhận thấy được độ trễ về thời gian, vì nó quá nhanh quá nguy hiểm.
+
+### 4.2 Workqueues
+Workqueue, cũng tương tự như tasklet, cho phép kernel code yêu cầu một function thực hiện tại một thời điểm trong tương lai. Tuy nhiên có nhiều điểm khác biệt lớn giữa tasklet và workqueue:
+- Tasklet chạy trong software interrupt context, nên tasklet code phải là atomic. Trong khi, workqueue function chạy trong context của một kernel process đặc biệt, kết quả là nó linh hoạt hơn, thực tế, nó có thể ngủ được.
+-Cả Workqueue và  Tasklet luôn luôn chạy trong processor đã submit lệnh yêu cầu chạy nó.
+- Kernel code có thể yêu cầu workqueue function được gọi sau một khoảng delay rõ ràng, chứ không phải kiểu sống chết mặc bay của tasklet.
+Do những khác biết trên, tasklet thực thi nhanh hơn và an toàn hơn nên được ưa dùng trong các interrupt handler.
+Như hầu hết các kỹ thuật Sleep khác, Workqueue cũng sử dụng một strucutre để khai báo, cầu trúc này định nghĩa trong header linux/workqueue.h. Để sử dụng workqueue, cần tạo nó trước khi sử dụng bằng một trong hai hàm sau
+{% highlight c%}
+struct workqueue_struct *create_workqueue(const char *name);
+struct workqueue_struct *create_singlethread_workqueue(const char *name);
+{% endhighlight %}
+Sau đấy chúng ta tạo work_struct, đây là các struct chứa các callback function sẽ thực hiện bởi workqueue, một workqueue có thể có nhiều work_struct được add vào.
+
+Tạo work_struct ở run time bằng một trong hai cách sau:
+{% highlight c%}
+INIT_WORK(struct work_struct *work, void(*function)(void *), void *data);
+PREPARE_WORK(struct work_struct *work, void(*function)(void *), void *data);
+{% endhighlight %}
+Công việc của INIT_WORK chỉ đơn giản là khởi tạo một struct với hàm call back là func, và dữ liệu truyền vào là data. 
+
+Sau khi đã có work_struct, cần phải submit nó vào workqueue với một trong hai hàm sau:
+{% highlight c%}
+int queue_work(struct workqueue_struct *queue, struct work_struct* work);
+int queue_delayed_work(struct workqueue_struct *queue, struct work_struct *work, unsigned long delay);
+{% endhighlight %}
+Nhìn tên hai hàm chúng ta cũng thấy được 1 cái là có thêm khoảng delay vào, một cái thì không. Lưu ý là một work_struct chỉ được add vào workqueue một lần
+
+Các hàm tiện ích khác đối với workqueue
+{% highlight c%}
+int cancel_delayed_work(struct work_struct *work);
+void flush_workqueue(struct workqueue_struct *queue);
+void destroy_workqueue(struct workqueue_struct *queue);
+{% endhighlight %}
+## 5. Interrupt Sharing
+Nhiều device có thể dùng chung một interrupt line.
+### 5.1 Cài đặt một Shared Handler.
+Shared interrupt vẫn được cài đặt bằng hàm request_irq() giống như các interrupt thông thường, nhưng có 2 điểm khác biệt:<br/>
+<code>SA_SHIRQ</code> phải được set trong cờ khi yêu cầu interrupt.
+<code>dev_id</code> phải là độc lập.(main key) Truường hợp này, dev_id được dùng như một identifier để phân biệt các handler được lưu giữ trong kernel.
+### 5.2 Interrupt handler
+Khi nhận interrupt phải kiểm tra xem interrupt đấy có phải là của nó không, nếu không phải thì phải exit ngay.
+
+## 6. Interrupt-Driven I/O.
+Cái này nói về việc buffer dữ liệu. Sau viết.
+
+## 7. Ví dụ thực tế: Interrupt handler cho keyboard driver, PC intel.
