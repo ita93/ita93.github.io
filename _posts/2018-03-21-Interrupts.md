@@ -202,3 +202,59 @@ Khi nhận interrupt phải kiểm tra xem interrupt đấy có phải là của
 Cái này nói về việc buffer dữ liệu. Sau viết.
 
 ## 7. Ví dụ thực tế: Interrupt handler cho keyboard driver, PC intel.
+Bây giờ mình thử viết một kernel module để nghịc cái interrupt của bàn phím, lưu ý là cái module này chỉ dùng trên máy Intel thôi, và nếu muốn test thì chỉ nên test trên máy ảo.
+Trên Intel arch thì bàn phím sử dụng interupt line number 1. Và bởi vì hầu hết các bản Linux đều có device driver cho bàn phím tích hợp sẵn (built-in), và tất nhiên driver này đã đăng ký interrupt handler với kernel, một non-shared handler, nên trong module keyboard tự tạo của mình, thì công việc đầu tiên làcần phải giải phóng interrupt line.
+Mặc dù chỉ làm một số thao tác đơn giản, nhưng interrupt handler ví dụ này cũng sẽ được chia làm hai phần là bottom half và top half. Phần bottom half sẽ dùng workqueue để xử lý. Do đó cần khai báo một workqueue.
+{% highlight c %}
+#define WORK_QUEUE_NAME "OniWQ" // Tên của workqueue.
+static struct workqueue_struct *my_workqueue;
+{% endhighlight %}
+
+Như đã nói ở trên, một workqueue sẽ gồm có nhiều work_struct, mỗi work_struct có một call back function, bây giờ, cần định nghĩa một callback function cho work_struct sẽ sử dụng.
+{% highlight c %}
+static void read_char(void *scancode)
+{
+	printk(KERN_INFO "Scan code %x %s.\n",(int)*((char*)scancode) & 0x7F, *((char*)scancode)&0x80? "Release:Pressed");
+}
+{% endhighlight %}
+
+Nhìn đoạn printk có vẻ lộn xộn và khó hiểu, nhưng thự tế là nó sẽ in ra xem phím nào gây ra interrupt, và phím được ấn hay được nhả ra. Hàm này chính là bottom half. Bây giờ chúng ta định nghĩa một hàm top half, theo mặt lý thuyết thì đây mới thực sự là interrupt handler.
+Định nghĩa một hàm với protype và một số local variable như sau như sau:
+{% highlight c %}
+irqreturn_t irq_handler(int irq, void *dev_id)
+{
+	static int isInit = 0;
+	static unsigned char scancode;
+	static struct work_struct task;
+	unsigned char status;
+}
+{% endhighlight %}
+
+Tiếp theo chúng ta đọc keyboard status bằng các cmd sau:
+{% highlight c %}
+status = inb(0x64);
+scancode = inb(0x60);
+{% endhighlight %}
+
+Sau khi biết được status rồi, nếu bottom half chưa chạy, thì chúng ta sẽ schedule cho nó
+{% highlight c %}
+if(isInit == 0){
+	INIT_WORK(&task, read_char, &scancode);
+	isInit = 1;
+}else{
+	PREPARE_WORK(&task, read_char, &scancode);
+}
+
+queue_work(my_workqueue, &task);
+
+return IRQ_HANDLED;
+{% endhighlight %}
+
+Việc request interrupt được thực hiện trong hàm init của module, và như đã nói ở trên, thì trước khi cài đặt custome driver, mình sẽ giải phóng interrupt line khỏi driver hiện tại của Linux.
+{% highlight c %}
+free_irq(1, (void*)irq_handler);
+return request_irq(1, irq_handler, SA_SHIRQ, "test_key_board",(void *)(irq_handler));
+{% endhighlight %}
+
+Ở đây có sử dụng function <code>inb(port)</code>. Vậy function này là một hàm dùng để access port của IOP. chữ b ở đây có nghĩa là byte-width tức là nó sẽ đọc 1byte từ port được truyền vào ở tham số. Trong ví dụ của mình, hàm này sẽ đọc 1byte từ port 0x64 như status code và port 0x60 như scancode.
+
