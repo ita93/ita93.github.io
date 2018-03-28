@@ -55,3 +55,5 @@ Later
 Device = Device function
 Device = (Domain number, bus number, device number, function number).
 </i></b>
+
+(Pending - Need to finish Computer bus first).
