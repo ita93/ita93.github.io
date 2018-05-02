@@ -10,7 +10,7 @@ comments: true
 Trong character driver, có implement hai hàm: read() và write(). Thử tưởng tượng, nếu như driver không thể thỏa mãn được request một cách tức thời, thì nó sẽ phản ứng như thế nào? Điều này tức là driver sẽ làm gì nếu như hàm <code>read()</code> được gọi khi dữ liệu chưa sẵn có, nhưng có thể nó sẽ có trong tương lai gần. Hoặc một process cố gắng thực hiện lệnh <code>write()</code> nhưng device chưa sẵn sàng nhận dữ liệu bởi vì buffer đang full. Trong trường hợp này, driver nên block process (user-space) lại, đưa nó vào tình trạng sleep cho đến khi các request có thể được thực thi.<br/>
 
 ## 1 Sleeping trong kernel
--Khi một process ở trạng thái sleep, nó sẽ bị remove khỏi scheduler's run queue cho đến khi statuc của nó được thay đổi bởi một sự kiện nào đó. <br/>
+-Khi một process ở trạng thái sleep, nó sẽ bị remove khỏi scheduler's run queue cho đến khi status của nó được thay đổi bởi một sự kiện nào đó. <br/>
 -Một process ở sleep status sẽ không được lập lịch trong CPU.<br/><br/>
 Để một đoạn code có thể được đưa vào trạng thái sleep thì nó cần thỏa mãn các điều kiện sau đây:<br/>
 -Rule 1: Không sleep khi đang trong một atomic context. Tức là driver không được sleep khi đang giữ spinlock, seqlock hoặc RCU lock.<br/>
