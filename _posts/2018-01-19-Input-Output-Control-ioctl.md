@@ -243,7 +243,147 @@ static long my_ioctl(struct file *f, unsigned int cmd, unsigned long arg)
 
 Trong hàm my_ioctl, chúng ta sử dụng 1 câu lệnh switch-case để thực hiện các hành động tương ứng với mỗi cmd number đã khai báo ở file header.
 
+Tiếp theo là chương trình (user-space) để sử dụng các ioctl cmd đã khai báo:
+{% highlight c %}
+//filename: query_app.c
+#include <stdio.h>
+#include <sys/types.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/ioctl.h>
+
+//Include để sử dụng các khai báo.
+#include "query_ioctl.h"
+
+void get_vars(int fd)
+{
+    query_arg_t q;
+    if(ioctl(fd, QUERY_GET_VARIABLES,&q) == -1)
+    {
+            perror("query_apps ioctl get");
+    }
+    else
+    {
+            printf("Day: %d\n", q.day);
+            printf("Month: %d\n", q.month);
+            printf("Year: %d\n", q.year);
+    }
+}
+
+void clr_vars(int fd)
+{
+    if(ioctl(fd, QUERY_CLR_VARIABLES) == -1)
+    {
+            printf("query_apps ioctl clr\n");
+    }
+}
+
+void set_vars(int fd)
+{
+    int v;
+    query_arg_t
+    printf("Enter Day: \n");
+    scanf("%d",&v);
+    getchar();
+    q.day = v;
+    printf("ENTER Month: \n");
+    scanf("%d",&v);
+    q.month = v;
+    getchar();
+    printf("ENTER Year: \n");
+    scanf("%d",&v);
+    getchar();
+    q.year
+    if(ioctl(fd, QUERY_SET_VARIABLES, &q) == -1)
+    {
+            perror("query_apps ioctl set");
+    }
+}
+
+int main(int argc, char *argv[])
+{
+	//Đây là đường dẫn đến dev file
+    char *file_name = "/dev/query";
+    int fd;
+    enum
+    {
+            e_get,
+            e_clr,
+            e_set
+    }option;
+
+    /*
+    Phần còn lại sẽ kiểm tra số tham số được truyền vào, và dựa vào đấy sẽ thực hiện các lời gọi đến hàm tương ứng
+    */
+
+    if(argc == 1)
+    {
+            option = e_get;
+    }
+    else if(argc ==2)
+    {
+            if(strcmp(argv[1], "-g") == 0)
+            {
+                    option = e_get;
+            }
+            else if(strcmp(argv[1], "-c") == 0)
+            {
+                    option = e_clr;
+            }
+            else if(strcmp(argv[1],"-s") == 0)
+            {
+                    option = e_set;
+            }
+            else
+            {
+                    fprintf(stderr, "Usage %s [-g|-c|-s]\n", argv[0]);
+                    return 1;
+            }
+    }
+    else
+    {
+            fprintf(stderr, "Usage %s [-g|-c|-s]\n",argv[0]);
+            return 1;
+    }
+
+    //Lấy file descriptor của device file
+    fd = open(file_name, O_RDWR);
+    if(fd == -1)
+    {
+            perror("query_apps open");
+            return 2;
+    }
+
+    switch(option)
+    {
+            case e_get:
+                    get_vars(fd);
+                    break;
+            case e_clr:
+                    clr_vars(fd);
+                    break;
+            case e_set:
+                    set_vars(fd);
+                    break;
+            default:
+                    break;
+    }
+
+    close(fd);
+    return 0;
+}
 
 
+{% endhighlight %}
 
+Sau khi đã hoàn thành cả ldd và app, chúng ta có thể test nó, đầu tiên cần insert module vào kernel: <code>insmod oni_ioctl.ko</code>
+Bây giờ mở terminal và enter command <code>sudo query_app</code>, lúc này, nó sẽ thực hiện gọi đến hàm e_get, tức là thực hiện command number QUERY_GET_VARIABLES của ldd. Kết quả in ra màn hình sẽ là giá trị mặc định đã khai báo trong file oni_ioctl.c:
+{% highlight shell %}
+Day: 11
+Month: 2
+Year: 1993
+{% endhighlight %}
 
+Bây giờ, sử dụng ioctl để thay đổi giá trị của birthday lưu trong ldd bằng cách sử dụng command: <code>sudo query_app -s</code>, sau đó nhập giá trị bạn muốn vào.
+Lúc này, nếu sử dụng <code>sudo query_app</code> hoặc <code>sudo query_app -g</code> để in thì bạn sẽ thấy giá trị mới nhập vào sẽ được in ra màn hình.
