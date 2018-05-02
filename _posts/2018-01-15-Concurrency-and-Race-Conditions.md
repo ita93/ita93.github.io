@@ -185,9 +185,9 @@ $ End of the program
 Giải thích: khi chạy file test, nó sẽ yêu cầu nhập vào một string ngắn từ bàn phím, string này sẽ được lưu copy vào kernel space và lưu ở biến <code>msg</code> của module. Sau đó, khi người dùng ấn Enter, giá trị của msg sẽ được copy ngược lại ra user-app và in ra màn hình.<br/>
 Bây giờ hãy thử một bài test để chứng tỏ tính không đồng bộ của device driver hiện tại: <br/>
 -Mở 2 tab terminal và chạy <code>sudo ./test</code> ở cả 2 tab.<br>
--Ở tab đầu tiên, nhập vào chuỗi "Tem1", rồi để nó ở đấy, tức là chương trình đã ghi chuỗi "Tem1" và device.<br/>
--Ở tab 2, nhập vào chuỗi "Temp2", sau đó gõ enter để đọc, thì chương trình sẽ in ra <code>The received message is: []</code><br/>
--Quay lại tab đầu tiên, bây giờ gõ Enter, thì màn hình sẽ in ra <code>The received message is: []</code>. Tức là thay vì in ra chuỗi "Temp1" thì nó lại in ra "Temp2"<br/>. Lý do là vì cả 2 chương trình test đều dùng chung resource là device file <i>oni_chrdev</i>. Chương trình 2 chạy sau, nên hàm write của nó đã overwrite giá trị biến <code>msg</code>. Sau đó khi p2 thực hiện hàm read, nó cũng xóa luôn msg, nên p1 thực hiện hàm read sau sẽ chỉ đọc được một chuỗi rỗng, ngược lại nếu thực hiện <code>read</code> của p1 trước p2, thì giá trị in ra cũng là [Temp2] chứ không phải [Temp1] như mong đợi.<br/><br/>
+-Ở tab đầu tiên, nhập vào chuỗi "Temp1", rồi để nó ở đấy, tức là chương trình đã ghi chuỗi "Temp1" vào device.<br/>
+-Ở tab 2, nhập vào chuỗi "Temp2", sau đó gõ enter để đọc, thì chương trình sẽ in ra <code>The received message is: Temp2</code><br/>
+-Quay lại tab đầu tiên, bây giờ gõ Enter, thì màn hình sẽ in ra <code>The received message is: Temp2</code>. Tức là thay vì in ra chuỗi "Temp1" thì nó lại in ra "Temp2"<br/>. Lý do là vì cả 2 chương trình test đều dùng chung resource là device file <i>oni_chrdev</i>. Chương trình 2 chạy sau, nên hàm write của nó đã overwrite giá trị biến <code>msg</code>. Sau đó khi p2 thực hiện hàm read, nó cũng xóa luôn msg, nên p1 thực hiện hàm read sau sẽ chỉ đọc được một chuỗi rỗng, ngược lại nếu thực hiện <code>read</code> của p1 trước p2, thì giá trị in ra cũng là [Temp2] chứ không phải [Temp1] như mong đợi.<br/><br/>
 
 Để giải quyết vấn đề này, chúng ta sẽ chỉ cho phép một instance của device file (fd) được mở tại cùng 1 thời điểm. Mình sẽ khai báo một mutex và lock nó ở hàm open và unlock ở hàm release. Đầu tiên phải thêm header chứa mutex vào và định nghĩa 1 mutex để sử dụng:<br/>
 
