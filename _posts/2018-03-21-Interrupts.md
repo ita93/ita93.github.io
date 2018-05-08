@@ -189,6 +189,21 @@ int cancel_delayed_work(struct work_struct *work);
 void flush_workqueue(struct workqueue_struct *queue);
 void destroy_workqueue(struct workqueue_struct *queue);
 {% endhighlight %}
+
+### 4.2 Đưa Interrupt Handler vào các kernel thread riêng.
+Như có thể thấy ở phần 4.1 và 4.2, tasklet và workqueue sẽ có một độ trễ (dù rất nhỏ) so với thời điểm xảy ra interrupt. Trong các tác vụ thông thường, việc này coi như tạm chấp nhận được, nhưng đối với các thiết bị, ứng dụng Real-time thì độ trễ này vẫn là một vấn đề. Vì thế các phiên bản linux kernel mới đã cập nhật thêm một giải pháp mới cho việc xử lý interrupt, gọi là <code>threaded interrupt</code>.
+
+Các thread interrupt chạy độc lập trên các kernel thread của nó.
+
+Việc yêu cầu một threađe interrupt handler được thực hiện bằng một cách dễ dàng bằng cách sử dụng lời giọi hàm sau:
+{% highligt c %}
+int request_threaded_irq(unsigned int irq, irq_handler_t handler, irq_handler_t threaded_fn, unsigned long irqflags, const char *devname, void *dev_id);
+{% endhighlight %}
+
+Lưu ý rằng (hard) IRQ handler (handler) có thể là NULL, trong trường hợp này default handler sẽ được thực thi, tức là nó sẽ trả về IRQ_WAKE_THREAD để đánh thức kernel thread liên kết với nó và kernel thread này sẽ chạy thread_fn (bottom half). Trong trường hợp này thì irqflags phải bao gồm IRQF_ONESHOT, ngược lại sau khi thực hiện top half, thì interrupt sẽ được enable trở lại và sẽ gây ra stack overflow.
+
+Các flag khả dụng có thể xem được trong file: /include/linux/interrupt.h
+
 ## 5. Interrupt Sharing
 Nhiều device có thể dùng chung một interrupt line.
 ### 5.1 Cài đặt một Shared Handler.
