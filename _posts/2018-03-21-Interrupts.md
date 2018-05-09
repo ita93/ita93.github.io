@@ -196,7 +196,7 @@ Như có thể thấy ở phần 4.1 và 4.2, tasklet và workqueue sẽ có m�
 Các thread interrupt chạy độc lập trên các kernel thread của nó.
 
 Việc yêu cầu một threađe interrupt handler được thực hiện bằng một cách dễ dàng bằng cách sử dụng lời giọi hàm sau:
-{% highligt c %}
+{% highlight c %}
 int request_threaded_irq(unsigned int irq, irq_handler_t handler, irq_handler_t threaded_fn, unsigned long irqflags, const char *devname, void *dev_id);
 {% endhighlight %}
 
