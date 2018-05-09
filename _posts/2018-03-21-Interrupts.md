@@ -190,7 +190,7 @@ void flush_workqueue(struct workqueue_struct *queue);
 void destroy_workqueue(struct workqueue_struct *queue);
 {% endhighlight %}
 
-### 4.2 Đưa Interrupt Handler vào các kernel thread riêng.
+### 4.3 Đưa Interrupt Handler vào các kernel thread riêng.
 Như có thể thấy ở phần 4.1 và 4.2, tasklet và workqueue sẽ có một độ trễ (dù rất nhỏ) so với thời điểm xảy ra interrupt. Trong các tác vụ thông thường, việc này coi như tạm chấp nhận được, nhưng đối với các thiết bị, ứng dụng Real-time thì độ trễ này vẫn là một vấn đề. Vì thế các phiên bản linux kernel mới đã cập nhật thêm một giải pháp mới cho việc xử lý interrupt, gọi là <code>threaded interrupt</code>.
 
 Các thread interrupt chạy độc lập trên các kernel thread của nó.
