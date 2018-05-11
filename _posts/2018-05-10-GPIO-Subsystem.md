@@ -261,10 +261,10 @@ build nó nào: <code>make</code>
 Sau khi hoàn thành, file firmware sẽ là: <code>bin/targets/ar71xx/generic/openwrt-ar71xx-generic-wpj563-squashfs-sysupgrade.bin</code>
 
 Flash nó bằng các command sau (chạy trong uboot):
-{% highligh shell %}
+{% highlight shell %}
 tftp 0x80060000 openwrt-ar71xx-generic-wpj563-squashfs-sysupgrade.bin
 erase 0x9f030000 +$filesize;cp.b $fileaddr 0x9f030000 $filesize;boot
-{% endhighligh %}
+{% endhighlight %}
 Lúc mới khởi động xong thì cả 2 đèn LED đều bị tắt.
 <img src="{{ site.url }}/images/GPIO/ligt off.JPG">
 Sau khi nó khởi động xong, bạn cần vào /etc/rc.button xóa hết các file trong này đi rồi reboot lại, nếu không lúc bấm nút nó sẽ Reboot board =)).
