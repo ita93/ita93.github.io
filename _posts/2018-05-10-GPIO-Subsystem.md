@@ -6,7 +6,7 @@ category: Linux device driver
 comments: true
 ---
 <figure>
-  <img src="{{ site.url }}/images/GPIO/gpio-pins" alt="GPIO Pins">
+  <img src="{{ site.url }}/images/GPIO/gpio-pins.jpg" alt="GPIO Pins">
   <figcaption>GPIO Pins trên máy Pi</figcaption>
 </figure>
 
