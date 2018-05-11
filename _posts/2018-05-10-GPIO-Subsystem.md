@@ -5,6 +5,11 @@ category: Linux device driver
 
 comments: true
 ---
+<figure>
+  <img src="{{ site.url }}/images/GPIO/gpio-pins" alt="GPIO Pins">
+  <figcaption>GPIO Pins trên máy Pi</figcaption>
+</figure>
+
 # A. GPIO Subsystem
 
 GPIO là gì? GPIO là viết tắt của General Port Input output, các port này xử lý cả tín hiệu số cả vào lẫn ra. Khi hoạt động như một cổng vào, nó có thể được sử dụng để kết nối CPU với tín hiệu ON/OFF nhận được từ các công tắc (ví dụ các nút bấm trên router), hoặc đọc các tín hiệu số từ các sensor. Còn nếu hoạt động như một cổng ra, nó có thể truyền các tín hiệu điều khiển đến các thiết bị dựa trên kết quả của các lệnh thực thi trong CPU, chẳng hạn như điều khiển tín hiệu bật tắt của đèn LED (Cái này sẽ trình bày trong ví dụ). 
