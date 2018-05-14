@@ -275,3 +275,23 @@ OK, bây giờ bấm nút và tận hưởng thành quả thôi.
 Sau khi bấm nút thì đèn sẽ sáng lên như này, bây giờ bấm 1 lần nữa thì đèn sẽ bị tắt.
 <img src="{{ site.url }}/images/GPIO/light on.JPG">
 
+## II. GPIO interface dựa trên descriptor.
+
+Đối với descriptor-based GPIO, một GPIO được mô tả bằng cấu trúc:
+{% highlight c %}
+struct gpio_desc{
+    struct gpio_chip *chip;
+    unsigned log flags;
+    const char *label;
+};
+{% highlight %}
+
+Cấu trúc này nằm trong header:
+{% highlight c %}
+#include <linux/gpio/consumer.h>
+{% highlight %}
+
+Trước khi cấp phát và giành quyền sử dụng GPIO, những GPIO này phải được ánh xạ tới đâu đó, tức là chúng phải được gắn với device của bạn (đối với integer-based, thì chúng ta chỉ cần request gpio number và dùng là được). Các phương pháp ánh xạ (mapping) gồm có:
+-   Platform data mapping: Thực hiện trong board file.
+-   Device tree: Thực hiện bằng device tree.
+-   ACPI: Sử dụng ACPI mapping, thường được sử dụng trong các system x86.
