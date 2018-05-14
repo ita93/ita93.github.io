@@ -289,12 +289,12 @@ struct gpio_desc{
     unsigned log flags;
     const char *label;
 };
-{% highlight %}
+{% endhighlight %}
 
 Cấu trúc này nằm trong header:
 {% highlight c %}
-#include <linux/gpio/consumer.h>
-{% highlight %}
+	#include <linux/gpio/consumer.h>
+{% endhighlight %}
 
 Trước khi cấp phát và giành quyền sử dụng GPIO, những GPIO này phải được ánh xạ tới đâu đó, tức là chúng phải được gắn với device của bạn (đối với integer-based, thì chúng ta chỉ cần request gpio number và dùng là được). Các phương pháp ánh xạ (mapping) gồm có:
 -   Platform data mapping: Thực hiện trong board file.
@@ -307,7 +307,7 @@ Bạn có thể sử dụng gpiod_get() hoặc gpio_get_index() để cấp phá
 {% highlight c %}
 struct gpio_desc *gpiod_get_index(struct device *dev, const char *const_id, unsigned int idx, enum gpio_flags flags);
 struct gpio_desc *gpiod_get(struct device *dev, const char *con_id, enum gpiod_flags flags);
-{% highlight %}
+{% endhighlight %}
 
 Hai hàm này trả về cấu trúc GPIO descriptor tương ứng với GPIO đã được truyền vào, điểm khác nhau là hàm đầu tiên thế trả về GPIO theo index trong biến idx, còn hàm thứ hai sẽ trả về GPIO ở index 0, (nếu bạn kiểm tra kernel sourc, thì sẽ thấy hàm thứ 2 thật ra chỉ là 1 lời gọi đến hàm thứ nhất). <code>dev</code> là device mà GPIO descriptor thuộc về.
 <code>flag</code> dùng để cấu hình chiều truyền của GPIO, nó là một thể hiện của <code>enum gpio_flags</code>:
