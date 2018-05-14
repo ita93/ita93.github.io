@@ -300,3 +300,36 @@ Trước khi cấp phát và giành quyền sử dụng GPIO, những GPIO này 
 -   Platform data mapping: Thực hiện trong board file.
 -   Device tree: Thực hiện bằng device tree.
 -   ACPI: Sử dụng ACPI mapping, thường được sử dụng trong các system x86.
+
+### 1. Cấp phát và sử dụng descriptor-base GPIO
+Bạn có thể sử dụng gpiod_get() hoặc gpio_get_index() để cấp phát một GPIO descriptor:
+
+{% highlight c %}
+struct gpio_desc *gpiod_get_index(struct device *dev, const char *const_id, unsigned int idx, enum gpio_flags flags);
+struct gpio_desc *gpiod_get(struct device *dev, const char *con_id, enum gpiod_flags flags);
+{% highlight %}
+
+Hai hàm này trả về cấu trúc GPIO descriptor tương ứng với GPIO đã được truyền vào, điểm khác nhau là hàm đầu tiên thế trả về GPIO theo index trong biến idx, còn hàm thứ hai sẽ trả về GPIO ở index 0, (nếu bạn kiểm tra kernel sourc, thì sẽ thấy hàm thứ 2 thật ra chỉ là 1 lời gọi đến hàm thứ nhất). <code>dev</code> là device mà GPIO descriptor thuộc về.
+<code>flag</code> dùng để cấu hình chiều truyền của GPIO, nó là một thể hiện của <code>enum gpio_flags</code>:
+{% highlight c %}
+enum gpio_flags{
+    GPIOD_ASIS = 0,
+    GPIOD_IN = GPIOD_FLAGS_BIT_DIR_SET,
+    GPIOD_OUT_LOW = GPIOD_FLAGS_BIT_DIR_SET |
+                    GPIOD_FLAGS_BIT_DIR_OUT,
+    GPIOD_OUT_HIGH = GPIO_FLAGS_BIT_DIR_SET |
+                    GPIO_FLAGS_BIT_DIR_OUT |
+                    GPIO_FLAGS_BIT_DIR_VAL,
+};
+{% endhighlight %}
+
+Sau khi đã cấp phát và dành quyền sử dụng GPIO, chúng ta có thể thao tác đọc, ghi thay đổi debounce với các hàm sau:
+{% highlight c %}
+int gpiod_direction_input(struct gpio_desc *desc); 
+int gpiod_direction_output(struct gpio_desc *desc, int value);
+int gpiod_set_debounce(struct gpio_desc *desc, unsigned debounce);
+struct gpio_desc *gpio_to_desc(unsigned gpio); 
+int desc_to_gpio(const struct gpio_desc *desc);
+int gpiod_get_value(const struct gpio_desc *desc); 
+void gpiod_set_value(struct gpio_desc *desc, int value);
+{% endhighlight %}
