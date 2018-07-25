@@ -251,3 +251,41 @@ platform_device_register(&my_device);
 void *dev_get_platdata(const struct device *dev);
 struct my_gpios *picked_gpios = dev_get_platdata(&pdev->dev);
 {% endhighlight %}
+
+# II. Kernel Kết hợp platform device với platform driver như thế nào?
+
+Làm thế nào kernel biết được device nào được điều khiển bởi driver nào? Câu trả lời là <code>MODULE_DEVICE_TABLE</code>. Macro này sẽ giúp driver đưa ra một bảng ID của nó, bảng này mô tả những device mà nó có thể hỗ trợ. Trong khi chờ đợi, nếu như driver có thể được biên dịch như là một module (thay vì built-in), trường <code>driver.name</code> nên trùng với module name. Nếu không, module sẽ không thể load một cách tự động, trừ khi chúng ta đã sử dụng <code>MODULE_ALIAS</code> macro để thêm một tên khác cho module. Ở thời điểm biên dịch, những thông tin này sẽ được đọc từ tất cả các driver để tạo ra một bảng device table. Khi kernel phải tìm kiếm driver cho một device, kernel sẽ duyệt qua device table. Nếu kernel tìm thấy một driver (table row) phù hợp với <code>compatible</code>, hoặc device/vendor id, hoặc name của device được thêm vào, thì module đã cung cấp thông tin để tạo nên row đó sẽ được load, và <code>probe</code> function sẽ được gọi với tham số truyền vào là device tương ứng.
+
+{% highlight c %}
+#include <linux/module.h>
+#define MODULE_DEVICE_TABLE(type, name)
+{% endhighlight %}
+
+Ở đây trường <code>type</code> có thể là <code>i2c, spi, of, platform, usb, pci</code> hoặc bất kỳ bus nào khác đã được định nghĩa bởi kernel trong file <code>mod_devicetable.h</code>. Nó phụ thuộc vào bus mà device ngồi, và phục thuộc vào kỹ thuật matching bạn muốn dùng. CÒn trường <code>name</code> là một con trỏ đến một mảng xxx_device_id, được sử dụng cho mục đích matching device. xxx chính là tên của bus bạn muốn dùng, hoặc of_device_id nếu bạn dùng device tree.
+
+Kernel thực hiện việc match platform device với driver thông qua hàm <code>platform_match</code> được định nghĩa trong file /drivers/base/platform.c:
+{% highlight c %}
+static int platform_match(struct device *dev, struct device_driver *drv)
+{
+    struct platform_device *pdev = to_platform_device(dev);
+    struct platform_driver *pdev = to_platform_driver(dev);
+
+    /*Nếu driver_override được định nghĩa, thì chỉ bind với matching driver */
+    if(pdev->driver_override)
+        return !strcmp(pdev->driver_override, drv->name);
+    /*Thực hiện match theo style OF trước */
+    if(of_driver_match_device(dev, drv))
+        return 1;
+    /* Thực hiện ACPI match */
+    if(acpi_driver_match_device(dev,drv))
+        return 1;
+    /*Id table */
+    if(pdrv->id_table)
+        return platform_match_id(pdrv->id_table, pdev) != NULL;
+    
+    /*Fall-back to driver name match */
+    return (strcmp(pdev->name, drv->name) == 0);
+}
+{% endhighlight %}
+
+Thật ra mấy cái hàm matching trên chỉ là so sánh xâu mà thôi.
