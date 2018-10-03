@@ -72,12 +72,12 @@ static struct platform_driver mydrv = {
 {% endhighlight %}
 
 
-    - <code>probe()</code>: Đây là hàm được gọi khi thiết bị đòi hỏi driver ở lần đầu tiên, nó được khai báo như sau:
+    - probe(): Đây là hàm được gọi khi thiết bị đòi hỏi driver ở lần đầu tiên, nó được khai báo như sau:
             {% highlight c %}
             static int my_pdrv_probe(struct platform_device *pdev);
             {% endhighlight %}
 
-    - <code>remove()</code>: hàm này được gọi khi device không còn sử dụng driver nữa, khai báo như sau:
+    - remove(): hàm này được gọi khi device không còn sử dụng driver nữa, khai báo như sau:
             {% highlight c %}
             static int my_pdrv_remove(struct platform_device *pdev);
             {% endhighlight %}
@@ -89,6 +89,7 @@ static struct platform_driver mydrv = {
 Tiếp theo chúng ta sẽ thử viết một platform driver đơn giản, nhiệm vụ của nó là tự đăng ký nó với kernel.
 
 {% highlight c %}
+/*File oni_pdriver.c*/
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/init.h>
@@ -107,7 +108,7 @@ static struct platform_driver mydrv = {
     .probe      = my_pdrv_probe,
     .remove     = my_pdrv_remove,
     .driver     = {
-        .name = KBUILD_MODNAME,
+        .name = "oni_pdev",
         .owner = THIS_MODULE,
     },
 };
@@ -289,3 +290,64 @@ static int platform_match(struct device *dev, struct device_driver *drv)
 {% endhighlight %}
 
 Thật ra mấy cái hàm matching trên chỉ là so sánh xâu mà thôi.
+
+Bây giờ, mình sẽ viết một platform device để phối kết hợp với cái platform driver ở trên.
+Mình sẽ viết platform device trong một file mới đặt tên là <code>oni_pdev</code>. 
+Trước hết chúng ta sẽ định nghĩa ra một struct để  lưu giữ platform data. Cấu trúc này mình sẽ định nghĩa ra 2 trường là tên và tuổi (y như bài tập hồi sing viên :v). Tuy nhiên thay vì định nghĩa vào file oni_pdev.c, mình thực hiện điều này trong một file header mới tên là <code>oni_pp.h<code> vì chúng ta cần sử dụng struct này trong file platform driver.
+{% highlight c %}
+/*file oni_pp.h*/
+struct oni_pdata{
+    char* name;
+    int age;
+};
+{% endhighlight %}
+
+Quay lại file <code>oni_pdev.c</code>, điều đầu tiên tất nhiên là include file header ở trên vào. Tiếp theo chúng ta khai báo platform data instance và resource cho device như sau:
+{% highlight c %}
+/*resource là mảng các struct, chúng ta chỉ cần 1 element thôi*/
+struct resource oni_rs[]={
+    {
+        .name = "oni_rs",       //Tên !important
+        .flags = IORESOURCE_MEM,
+        .start = 0x00,
+        .end = 0x10,
+    },
+};
+
+/*platform data instance*/
+struct oni_pdata oni_pdev={
+    .name = "Phi Nguyen",
+    .age = 25,
+};
+{% endhighlight %}
+
+Sau khi đã có data và resource, mình sẽ khai báo platform_device của mình:
+{% highlight c %}
+struct platform_device oni_device = {
+    .name = "oni_device",   //Tên ở đây phải trùng với tên ở struct platform_driver đã viết ở phần trước*/
+    .id = 0,
+    .resource = oni_rs,
+    .num_resources = 1,
+    .dev = {
+        .platform_data = &oni_pdev,
+    }
+};
+{% endhighlight %}
+Tiếp theo mình sẽ đăng ký platform device này ở trong hàm init của module và insmod module vào hệ thống.
+
+Bây giờ mình sửa lại file oni_pdriver.c ở phần I một chút để có thể hiển thị rõ hơn việc pdriver và pdevice đã được matching với nhau.
+Trong hàm <code>my_pdriver_probe()</code> mình sẽ thay dòng code
+{% highlight c %}
+    pr_info("Hello! device probed! \n");
+{% endhighlight %}
+bằng đoạn code sau:
+{% highlight c %}
+    struct oni_pdata* odp = dev_get_platdata(&pdev->dev);
+    pr_info("Our device has name %s and age %d\n", odp->name, odp->age);
+{% endhighlight %}
+
+Quên mất là phải include file header đã tạo vào nữa.
+Sau đấy rebuild nó và insmod vào kernel. Kiểm tra dmesg, bạn sẽ thấy dòng log sau:
+<code>Our device has name Phi Nguyen and age 25</code>
+Đây là data chúng ta đã khai báo cho platform device.
+
