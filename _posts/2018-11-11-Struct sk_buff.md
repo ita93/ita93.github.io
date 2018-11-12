@@ -17,13 +17,13 @@ Trong mạng 7 tầng, thì các tầng mà network subsystem cần phải xử 
     Layer 4: Transport Layer (UDP/TCP)
 
 <code>sk_buff</code> được sử dụng ở 3 layer này, và khi chuyển từ layer này sang layer khác thì một số trường của cấu trúc này bị thay đổi, do các layer sẽ thêm/cắt bỏ header của layer đó khi gửi/nhận packet.
-<code>sk_buff<code> chứa rất nhiều trường khác nhau, một số lương khổng lồ đủ để người ta biết được tất cả các thông tin cần thiết khi nhìn vào đấy. Các trường này có thể được chia vào 4 loại: Layout, General, Feature-generic, Management function.
+<code>sk_buff</code> chứa rất nhiều trường khác nhau, một số lương khổng lồ đủ để người ta biết được tất cả các thông tin cần thiết khi nhìn vào đấy. Các trường này có thể được chia vào 4 loại: Layout, General, Feature-generic, Management function.
 
 ## 1.  Layout Fields.
 Những trường này có tác dụng giúp việc tìm kiếm một <code>sk_buff</code> variable trở nên dễ dàng hơn và tổ chức cấu trúc dữ liệu một cách hiệu quả là chính.
 
 Các <code>sk_buff</code> trong Linux kernel được tổ chức thành các danh sách liên kết đôi, khi nhìn vào source code, có thể dễ dàng nhận thấy hai trường <code>next</code> và <code>prev</code> là hai con trỏ trỏ đến <code>sk_buff</code> bên trước và bên sau <code>sk_buff</code> hiện tại trong danh sách liên kết này. 
-Ngoài ra có một cấu trúc dữ liệu <code>struct sk_buff_head</code> cũng được khai báo, nó cũng chứa 2 con trỏ <code>sk_buff*<code> tương tự như cấu trúc sk_buff, ngoài ra nó còn chứa <code>qlen</code> là độ dài của danh sách liên kết (các sk_buff). Cấu trúc này giúp cho việc tìm ra head của toàn bộ danh sách liên kết một cách dễ dàng hơn.
+Ngoài ra có một cấu trúc dữ liệu <code>struct sk_buff_head</code> cũng được khai báo, nó cũng chứa 2 con trỏ <code>sk_buff*</code> tương tự như cấu trúc sk_buff, ngoài ra nó còn chứa <code>qlen</code> là độ dài của danh sách liên kết (các sk_buff). Cấu trúc này giúp cho việc tìm ra head của toàn bộ danh sách liên kết một cách dễ dàng hơn.
 {% highlight c %}
 struct sk_buff_head{
     struct sk_buff *next;
@@ -42,7 +42,7 @@ Ngoài ra trong loại Layout fields này còn có một số field đáng chú 
 
 <code>unsigned int len</code> Đây là kích thước của khối dữ liệu trong buffer. Nó bao gồm cả kích thước của main buffer (trỏ đến bởi *head) và cả data trong fragments. Giá trị của nó thay đổi khi buffer được chuyển từ một network layer này sang một network layer khác, bởi vì khi đó, header sẽ được thêm vào (khi chuẩn bị gửi dữ liệu đi) hoặc cắt bớt (khi nhận dữ liệu).<br/>
 
-<code>unsigned int data_len<code>: Kích thước của dữ liệu nằm trong fragment. <br/>
+<code>unsigned int data_len</code>: Kích thước của dữ liệu nằm trong fragment. <br/>
 
 <code>usigned int mac_len</code>: Kích thước của MAC header. <br/>
 
