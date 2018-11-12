@@ -53,3 +53,19 @@ Ngoài ra trong loại Layout fields này còn có một số field đáng chú 
 <code>usigned char *head, *end, *data, *tail</code>: Mấy thằng này rất quan trọng. <br/>
 
 <code>void (*destructor)(...)</code>: Như tên gọi. <br/>
+
+## 2.  General Fields.
+Một số lượng lớn các trường của cấu trúc <code>sk_buff</code> là thuộc nhóm này.<br/>
+<code>struct timeval stamp</code> Chỉ sử dụng đối với một packet được nhận từ host khác, ý nghĩa của nó là timestamp của packet. Giá trị của trường này được gán bởi hàm <code>netif_rx_internal</code> bằng cách gọi đến <code>net_timestamp_check</code>.
+<code>struct net_device *dev</code> Giá trị của trường này phụ thuộc vào việc packet là nhận hay gửi. Về cơ bản thì trường này chính là device mà packet được nhận hay gửi đi.
+<code>struct net_device *input_dev</dev> Device nhận packet. giá trị null nếu packet được tạo cục bộ. (trong cùng máy)
+<code>struct net_device *real_dev</code> Được sử dụng bởi packet nằm trên virtual device.
+
+<code> union{...} transport_header, network_header, mac_header </code> (trong kernel version cũ chúng lần lượt là h, nh, mac). Đây là các header của các network layer tương ứng.
+<code> struct dst_entry dst</code> Được sử dụng bởi routing system.
+<code>char cb[40]</code> cb là viết tắt của control buffer. Dùng để lưu thông tin của mỗi layer, và chỉ sử dụng trong layer đó. 40 bytes là đủ lớn để lưu trữ bất kỳ thông tin nào của mỗi layer.
+<code>unsigned char ip_summed</code> và <code>unsigned int csum</code>: check sum và flag.
+<code>unsigned char cloned</code> Được set nếu đây là clone của 1 <code>sk_buff</code> khác.
+<code>unsigned char pkt_type</code> Phân loại frame dựa trên địa chỉ ở Layer 2. Các giá trị bao gồm: PACKET_HOST, PACKET_MULTICAST, PACKET_BROADCAST, PACKET_OTHERHOST, PACKET_OUTGOING, PACKET_LOOPBACK, PACKET_FASTROUTE.
+<code>__u32 priority</code> Quality of service.
+<code>unsigned short protocol</code> Đây là giao thức được sử dụng ở tầng tiếp theo (cao hơn) từ góc độ của device driver ở L2. Giá trị của trường này thường là: IP, IPv6 và ARP.
