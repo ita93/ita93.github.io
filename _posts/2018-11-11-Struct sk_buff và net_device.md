@@ -69,3 +69,25 @@ Một số lượng lớn các trường của cấu trúc <code>sk_buff</code> 
 <code>unsigned char pkt_type</code> Phân loại frame dựa trên địa chỉ ở Layer 2. Các giá trị bao gồm: PACKET_HOST, PACKET_MULTICAST, PACKET_BROADCAST, PACKET_OTHERHOST, PACKET_OUTGOING, PACKET_LOOPBACK, PACKET_FASTROUTE.
 <code>__u32 priority</code> Quality of service.
 <code>unsigned short protocol</code> Đây là giao thức được sử dụng ở tầng tiếp theo (cao hơn) từ góc độ của device driver ở L2. Giá trị của trường này thường là: IP, IPv6 và ARP.
+
+## 3.  Feature-Specific Fields.
+Các trường này dùng cho các tính năng đặc biệt như QoS, Netfilter, và chúng chỉ tồn tại khi các kernel config tương ứng được enable, (thông qua các macro), mấy cái này kệ đi, khỏi quan tâm :v
+
+## 4. Management Functions 
+Các hàm này rất chi là quan trọng :v, dùng để điều chỉnh các thành phần của cấu trúc sk_buff, hoặc là các phần tử của list sk_buff. Thường có 2 phiên bản là <code>__function()</code> và <code>function()</code>, về cơ bản thì cái thứ 2 sẽ là bản đóng gói của cái thứ nhất, sử dụng các default argument, hoặc thực hiện những việc handle lock trước khi gọi đến cái thứ nhất...
+
+### a. Các hàm cấp phát sk_buff.
+Core function:
+{% highlight c %}
+struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
+			    int flags, int node)
+{% endhighlight %}
+
+Đối với một sk_buff instance, chúng ta cần phải thực hiện 2 việc: cấp phát vùng nhớ cho <code>struct sk_buff</code> và cấp phát vùng nhớ cho <code>skb->data</code>.
+<code>sk_buff</code> và cả data buffẻ của nó đều được ưu tiên lấy ra từ cache.
+Lưu ý là kích thước thực tế của bộ nhớ động được cấp phát có thể sẽ không phải là <code>size</code> như tham số truyền vào, vì nó sẽ được làm tròn để trở thành bội số của <code>SKB_DATA_ALIGN</code>.
+### b. Các hàm điều chỉnh layout của dữ liệu chính.
+-   <code>skb_reserve</code>
+-   <code>skb_put</code>
+-   <code>skb_pull</code>
+-   <code>skb_push</code>
