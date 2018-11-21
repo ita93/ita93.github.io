@@ -335,3 +335,5 @@ void gpiod_set_value(struct gpio_desc *desc, int value);
 {% endhighlight %}
 
 # B. GPIO Controller Driver.
+Bây giờ chẳng may chúng ta vào kernel config và set CONFIG_GPIO_ATH79 bằng No, và quay lại insert cái module vừa viết vào kernel thì sẽ không thấy con bò gì xảy ra nữa, có thể sẽ xuất hiện những pha chửi thề mạnh mẽ: sao *** chạy nữa.
+Không chạy là chuẩn cmnr, vì trong Linux thì GPIO subsystem được hiện thực bằng một cái giống như provider-consumer design pattern ấy. Cái module ở trên vừa viết nó chỉ là consumer thôi, còn cái provider là một thằng khác, thường được implement bằng <code>struct gpio_chip</code> hoặc <code>struct irq_chip</code> gọi là gpio controller (sai thì thôi). :v
