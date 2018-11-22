@@ -65,9 +65,9 @@ Nếu một người đã quen với việc lập trình một ngôn ngữ bất
 Các dòng của assembly có cấu trúc như sau:
 <code>label: operation operand(s) @comment</code>
 Trong đó, label và comment là không bắt buộc, có thể có hoặc không.<br/>
-Trường <code>label</code> cho phép chúng ta đặt ký hiệu cho bất kỳ dòng nào trong chương trình. Vì mỗi dòng trong chương trình sẽ tương đương với một địa chỉ bộ nhớ nào đó, nên với <code>label</code> ta có thể nhảy về dòng lệnh mong muốn bất kể PC đang ở đâu. Rõ ràng là không phải dòng nào cũng cần label rồi.<br/>
+-   Trường <code>label</code> cho phép chúng ta đặt ký hiệu cho bất kỳ dòng nào trong chương trình. Vì mỗi dòng trong chương trình sẽ tương đương với một địa chỉ bộ nhớ nào đó, nên với <code>label</code> ta có thể nhảy về dòng lệnh mong muốn bất kể PC đang ở đâu. Rõ ràng là không phải dòng nào cũng cần label rồi.<br/>
 Trường <code>operation</code>: Thực hiện mục đích chính của dòng lệnh. Nó có thể rơi vào 2 trường hợp, trường hợp 1: đây là một <code>mnemonic</code> nó sẽ dịch sang mã máy, sau đó mã máy được copy vào bộ nhớ để sử dụng. Trường hợp 2: Nó là một <code>assembler directive</code> hoặc <code>pseudo op</code> bắt đầu bằng dấu chấm <code>.</code> , những operation dạng này sẽ không được dịch thành mã máy, mà thường nó sẽ thay đổi cách <b>as</b> dịch chương trình.<br/>
-Trường <code>Operand</code> Đây là các toán hạng được sử dụng bởi các <code>operation</code>, chúng có thể là tên của một register, một tên biến được tạo ra bởi lập trình viên, hoặc là một giá trị chuỗi ký tự (số hoặc string). Một ARM instruction thường có từ 0 đến 3 toán hạng, đa số có cấu trúc như sau:
+-   Trường <code>Operand</code> Đây là các toán hạng được sử dụng bởi các <code>operation</code>, chúng có thể là tên của một register, một tên biến được tạo ra bởi lập trình viên, hoặc là một giá trị chuỗi ký tự (số hoặc string). Một ARM instruction thường có từ 0 đến 3 toán hạng, đa số có cấu trúc như sau:
 <code>operation [destination[, source1[, source2[,source3]]]</code>.
 <br/><br/>
 Quay lại chương trình <i>testasm.S</i> ở trên, ta có thể thấy nó bắt đầu bằng 2 dòng comment, tiếp theo là 3 <code>assembler directive</code>, 3 dòng này chỉ ra các đặc tính của cái cpu đang dùng, mấy cái trên đây là dành cho Pi 3 B+, các model khác thì tìm trong manual nha, ahihi.<br/>
