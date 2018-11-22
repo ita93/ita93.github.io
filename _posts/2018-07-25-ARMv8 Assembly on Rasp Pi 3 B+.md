@@ -58,7 +58,7 @@ main:
     
     add sp, fp, 0   @Restore sp and fp
     ldr fp, [sp], 4
-{$ endhighlight %}
+{% endhighlight %}
 Code trên được sử dụng bởi gcc-assembler, nếu sử dụng assembler khác thì tên của instruction có thể khác chút xíu, nhưng các nguyên tắc cơ bản hầu như là giống nhau.
 Về cơ bản assembly là một ngôn ngữ line-oriented, tức là mỗi instruction chỉ được viết trên một dòng, và mỗi dòng chỉ có một instruction duy nhất, các dòng này được gọi là <b>Mnemonic</b>. Mỗi <b>mnemonic</b> sẽ được dịch 1-1 thành một dòng mã máy. Ví dụ <code>mov r0, 0</code> ở trên sẽ được chuyển thành mã máy là <b>0xe3a00000</b>. Các assembler khác nhau thì sẽ cố các <code>mnemonic</code> khác nhau, nhưng rất ít, và chúng đều thường tuân theo quy định trong manual của công ty cung cấp CPU.
 Nếu một người đã quen với việc lập trình một ngôn ngữ bất kỳ nào đấy, thì khi nhìn vào đoạn code trên đều có thể dễ dàng nhận thấy ký hiệu <i>@</i> là bắt đầu của một đoạn comment, nó giống với // trong C.
