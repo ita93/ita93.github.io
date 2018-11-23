@@ -23,7 +23,7 @@ SUB a, b, c
 Các phép cộng số học cơ bản như trừ, nhân, chia được đều có chung một cấu trúc như này. Như vậy, các phép tính đơn giản đều có tính đồng bộ (cấu tạo giống nhau), đều này giúp cho việc implement đơn giản hơn và hiệu năng cao hơn.
 
 # I. ARMv8 assembly
-
+## 1. Chương trình cơ bản.
 {% highlight c %}
 /File: maintest.c
 int main()
@@ -81,3 +81,13 @@ Các ELF sections sẽ được gom vào các segment trên, một segment có t
 Phân biệt segment và section: Segments chứa thông tin cần thiết ở runtime, trong khi section chưa thông tin cần thiết trong bước linking
 <br/><br/>
 Tiếp theo đó là directive <code>.global main</code>, có tác dụng làm cho label <code>main</code> được biết đến một cách toàn cục, code ở các file khác có thể tham chiếu đến label này. Theo sau nó là directive <code>.type</code>, khai báo rằng main là tên của một function.
+Tiếp theo, 2 dòng sau đây:
+{% highlight c %}
+main:
+    str fp, [sp, -4]!
+{% endhighlight %}
+thực ra chỉ là một instruction, và tui đặt label cho dòng instruction đấy là main, lưu ý là nếu sau label không có instruction nào, thì label đấy sẽ được gán cho dòng tiếp ngay sau nó, nếu bạn đã sử dụng goto trong C thì bạn sẽ thấy cái label này tương tự như vầy. Bàn về instruction trên thì nó có tác dụng là sẽ trừ đi 4 từ giá trị của sp, gán sp bằng giá trị mới này và dùng nó làm địa chỉ để lưu giá trị của fp. Ở đây, fp là frame pointer còn sp là stack pointer.
+Dòng tiếp theo sử dụng <code>sub</code> instruction để setup giá trị mới cho fp (mỗi function có 1 fp riêng). Tương phản với 2 dòng này là 2 dòng <code>ldr</code> và <code>add</code> ở cuối chương trình được dùng để restore lại giá trị ban đầu của sp và fp (giá trị khi chưa vào main).
+Dòng <code>mov</code> sẽ setup giá trị thanh ghi r0 thành 0. THanh ghi <b>r0</b> được dùng để lưu giá trị trả về của một hàm. Cuối cùng là sử dụng lệnh branch <code>bx</code> để trở về vị trí gọi hàm <code>lr</code>.
+<br/><br/>
+## 2. Một số instructions cơ bản.
