@@ -94,6 +94,9 @@ Lưu ý là kích thước thực tế của bộ nhớ động được cấp p
 
 # NOTE
 # 1. __netdev_alloc_skb 
+Cần biết Page fragment là gì trước
+Một page fragment là một vùng nhớ có kích thước và vị trí bất kỳ nằm trong 0 hoặc trong một tổ hợp các page? Nếu một page có chứa nhiều fragment page thì Ref count của page sẽ được tính bằng tổng số ref count của các fragment.
+Đề cấp phát một page fragment, Linux cung cấp các hàm: <code> page_frag_alloc</code> và <code>page_frag_free</code>. Những hàm này được sử dụng bởi network stack và network device driver để cung cấp một vùng memory sử dụng cho như sk_buff->head hoặc sử dụng cho frags của <code>skb_shared_info</code>
 {% highlight c %}
 /*
 Cấp phát 1 skbuff instance cho rx (receive) cho device *dev.
@@ -106,12 +109,16 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev, unsigned int len,
 {
 	struct page_frag_cache *nc;
 	unsigned long flags;
-	struct sk_buff *skb;
+	struct sk_buff *skb;	
 	bool pfmemalloc;
 	void *data;
 
-	len += NET_SKB_PAD;
-
+	//Do mặc định sk_buff sẽ được thêm một headroom có kích thước
+	//NET_SKB_PAD nên kích thước của sk_buff->data sẽ phải là len+NET_SKB_PAD
+	len += NET_SKB_PAD; 
+	
+	//Nếu kích thước của data lớn hơn page size (aligned) thì không thể dùng cache được,
+	//phải sử dụng alloc_skb để cấp phát một sk_buff hoàn tới mới (fresh new)
 	if ((len > SKB_WITH_OVERHEAD(PAGE_SIZE)) ||
 	    (gfp_mask & (__GFP_DIRECT_RECLAIM | GFP_DMA))) {
 		skb = __alloc_skb(len, gfp_mask, SKB_ALLOC_RX, NUMA_NO_NODE);
@@ -120,23 +127,31 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev, unsigned int len,
 		goto skb_success;
 	}
 
+	/*Trường hợp sử dụng page_frag_cache*/
 	len += SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
 	len = SKB_DATA_ALIGN(len);
+	// Hiện tại len đã được align
 
-	if (sk_memalloc_socks())
+	if (sk_memalloc_socks())	//Cái này không hiểu :(
 		gfp_mask |= __GFP_MEMALLOC;
 
+	//Disable Interrupt trên local CPU và lưu trạng thái lại
 	local_irq_save(flags);
 
+	//Dòng này có tác dụng tìm địa chỉ của biến netdev_alloc_cache ở cpu này
+	//đây là một biến per cpu, tức là mỗi cpu sẽ có 1 instance có giá trị khách nhau.
 	nc = this_cpu_ptr(&netdev_alloc_cache);
+	//Dòng này như đã nói ở trên, dùng để cấp phát 1 page_fragment kích thước len.
 	data = __alloc_page_frag(nc, len, gfp_mask);
 	pfmemalloc = nc->pfmemalloc;
 
+	//Re-enable Interrupt và restore trạng thái.
 	local_irq_restore(flags);
 
 	if (unlikely(!data))
 		return NULL;
 
+	//Khởi tạo các thông số cần thiết cho skb mới.
 	skb = __build_skb(data, len);
 	if (unlikely(!skb)) {
 		skb_free_frag(data);
@@ -149,7 +164,7 @@ struct sk_buff *__netdev_alloc_skb(struct net_device *dev, unsigned int len,
 	skb->head_frag = 1;
 
 skb_success:
-	skb_reserve(skb, NET_SKB_PAD);
+	skb_reserve(skb, NET_SKB_PAD);	//Không gian dành cho built-in headroom.
 	skb->dev = dev;
 
 skb_fail:
