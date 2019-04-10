@@ -5,35 +5,32 @@ category: Linux device driver
 
 comments: true
 ---
-# Concurrency and Race conditions(DRAFT Ver).
+# Mutex - Complitions - Spinlock.
 
-## 1. Semaphore trong Linux.
+## 1. Mutex trong Linux.
+Mutex là gì ? Theo 1 góc nào đó trên wiki thì:  khái niệm "mutex" thường được sử dụng để mô tả một cấu trúc ngăn cản hai tiến trình cũng thực hiện một đoạn mã hoặc truy cập một dữ liệu cùng lúc. Trên góc nhìn thực tế đầy tiền mặt, thì chẳng hạn như có 1 cột ATM VCB đang dựng đấy, người nào muốn rút tiền thì phải nhét thẻ(card) và gõ pass mang tiền về. Rõ ràng là để đưa thẻ cho cây ATM thì cần tiếp cận được cái lỗ (nhận thẻ) của nó, có thể coi cãi lỗ đấy là key, ai sở hữu key đó thì mới có thể rút tiền được, ngược lại sẽ phải đứng đợi đến khi cái lỗ đấy trống để đút vào. 
+<p>Còn trong thế giới phần mềm thì bạn có thể tưởng tượng ra việc bạn có một dãy đèn LED và có 2 thread (hoặc process) đều cố gắng ghi các giá trị khách nhau vào vị trí đèn, điều gì sẽ xảy ra ? Đây chính là trường hợp Race condition (sách tiếng việt gọi là miền găng). Bởi vì việc thread nào chạy trước, thread nào chạy sau hoàn toàn phụ thuộc vào giải thuật lập lịch và về cơ bản là chúng ta không đoán trước được, nên kết quả của viêc này chúng ta không đoán trước được.</p>
+Để tránh race condition, các nhà khoa học tiền bối đã phát minh ra một số phương pháp, trong đáy có mutex. (viết y như môn tập làm văn =)) ).
+Vậy về mặt khoa học, Mutex là gì? Mutex là một khóa "loại trừ lẫn nhau". Tại mỗi thời điểm chỉ có 1 thread có thể giữ khóa. Mutex có thể được sử dụng để tránh race condition. Một khi mutex bị lock thì chỉ có thread đã lock nó mới có thể unlock nó. Do đó, mỗi khi bạn muốn truy cập 1 tài nguyên dùng chung thì đầu tiên bạn phải khóa mutex (trong trường hợp bạn dành được khóa) rồi mới sử dụng tài nguyên, và nhớ phải unlock nó cho người khác dùng sau khi bạn đã hoàn thành công việc.
 
-Để sử dụng semaphores, module của chúng ta phải include header asm/semphore.h. 
-Kiểu dữ liệu cần dùng ở đây là struct semaphore;
+Linux là một hệ điều hành đa nhiệm nên việc xử lý race condition là bắt buốc phải có. Và linux kernel đương nhiên là sẽ cung cấp mutex cho chúng ta sử dụng.
 
-a. Những cách khai báo và khởi tạo semaphores.
-Cách 1: Tạo semaphore một cách trực tiếp, sau đó setup với sema_init:
-<code>sema_init(struct semaphore *sem, int val);</code>
-<code>val</code> là giá trị khởi tạo được gán cho semaphore.
+{% highlight c %} 
+struct mutex {
+    atomic_t        count;
+    spinlock_t      wait_lock;
+    struct list_head    wait_list;
+};
+{% endhighlight %}
 
-Tuy nhiên, thông thường semaphore được sử dụng ở mutex mode. Kernel cung cấp một số hàm và macro, để thực hiện việc này dễ dàng hơn.
-<code>DECLARE_MUTEX(name)</code>
-<code>DECLARE_MUTEX_LOCKED(name)</code>
-<p>Hai macro trên giúp chúng ta khai báo và khởi tạo semaphore ở mutex mode. Kết quả trả về ở đây là một biến semaphore (name) có giá trị khởi tạo (val) là 1(Với macro DECLARE_MUTEX) hoặc 0(với macro DECLARE_MUTEX_LOCKED). Đối với mutex bị lock thì nó cần được unlock trước khi bất kỳ một thread nào đó có thể truy cập đến nó.</p>
+Một mutex có thể được khởi tạo bằng <code>DEFINE_MUTEX(name)</code> - trong trường hợp mutex là một biến global khai báo ở compile time. Hoặc <code>mutex_init(struct mutex *lock)</code>- trong trường hợp mutex mutex được khai báo ở run-time.
 
-<p>Để giảm giá trị của val trong semaphore, ta dùng các version của down function:</p>
-<code>void down(struct semaphore *sem);</code><br/>
-<code>int down_interruptible(struct semaphore *sem);</code><br/>
-<code>int down_trylock(struct semaphore *sem);</code><br/>
-Sự khác biệt giữa các hàm này là như thế nào? <i>down</i> giảm giá trị của sem->val và wait. <i>down_interruptible</i> thực hiện cùng một tác vụ nhưng việc đợi có thể bị ngắt. Thông thường chúng ta muốn cho phép user-space process có thể ngừng (killed) bởi người dùng nên <i>down_interruptible</i> thông dụng hơn.<br/> 
-<i>down</i> version là một cách tốt để tạo ra các process không thể kill. (D state in ps command).
-Nếu tác vụ bị ngắt, thì <code>down_interruptible</code> trả về một giá tị khác không và caller không giữ semaphore. Việc sử dụng down_interruptible yêu cầu chúng ta phải luôn luôn check giá trị trá về và phản ứng một cách tương ứng.<br/>
-<i>down_trylock</i> không bao giờ sleep, nếu semaphore không khả dụng ở thời điểm gọi đến, nó sẽ return ngay lập tức một giá trị khác 0.<br/>
-
-Một khi thread đã gọi thành công một trong các version của <code>down</code> thì nó được gọi là holding thread của semaphore đó. Bây giờ thread này có toàn quyền với semaphore. Do đó nó cần giải phóng semaphore cho các thread khác sau khi hoàn thành công việc trong miền găng.<br/>
-<code>up(struct semaphore *sem);</code><br/>
-Sau khi up() được gọi thì caller thread không còn hold semaphore nữa.<br/>
+Khi mutex đã được khởi tạo thì chúng ta có thể lock hay unlock nó. Kernel API cung cấp 5 hàm cho các tác vụ này, bao gồm 3 hàm được sử dụng cho việc lock, một hàm cho việc unlock, hàm còn lại dùng cho việc kiểm tra tình trạng mutex.
+   - <code>mutex_lock</code> Sử dụng để lock/acquire mutex. Nếu mutex không khả dụng, thì task hiện tại sẽ được cho vào trạng thái sleep cho đến khi nó giành được mutex.
+   - <code>mutex_lock_interruptible</code> Tương tự như hàm mutex_lock, tuy nhiên trong thời gian đợi mutex, ta có thể interrupt task, chẳng hạn với CTRL+C.
+   - <code>mutex_trylock</code>  Giống như cái tên của nó, nếu không dành được lock nó sẽ return chứ không đợi chờ gì cả.
+   - <code>mutex_unlock</code> Hàm này được sử dụng để giải phóng một mutex mà nó đã khóa trước đó (cùng 1 thread - task). Ai tắt nút thì người đó phải mở nút.
+   - <code>mutex_is_locked</code> kiểm tra xem mutex có đang bị lock không (có thể dùng chúng với mutex_trylock).
 
 ## 2. Completions
 Một trong các pattern phổ biến trong kernel programming là khởi tạo một số activity bên ngoài current thread, sau đó đợi đến khi activity đó hoànthành. Activity này có thể là tạo một kernel thread hoặc một user-space process mới, một request đến một process đã tồn tại, hoặc một sốhardware-based action.
@@ -119,7 +116,7 @@ b. Tương ứng với các hàm trên chúng ta có 4 hàm để unlock một s
 <code>int spin_trylock_bh(spinlock_t *lock);</code><br/>
 
 ## 7. Practice make perfect
-Bây giờ đến phần ví dụ, phần này sẽ dùng lại device driver đã viết trong bài [Character device], và thêm phần xử lý miền găng vào. Nhưng trước hết, hãy viết một user-program để việc test được dễ dàng và rõ ràng hơn. Tạo một file code mới có tên là: <code>oni_test_app.c</code>
+Bây giờ đến phần ví dụ, phần này sẽ dùng lại device driver đã viết trong bài  <a href="{{ site.url }}/_post/2017-12-18-character-device.md">Character device</a>, và thêm phần xử lý miền găng vào. Nhưng trước hết, hãy viết một user-program để việc test được dễ dàng và rõ ràng hơn. Tạo một file code mới có tên là: <code>oni_test_app.c</code>
 {% highlight c %}
 #include<stdio.h>
 #include<stdlib.h>
