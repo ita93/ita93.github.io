@@ -62,18 +62,21 @@ Một completion thường là one-shot device, tức là nó chỉ được dù
 Appendex: <code>void complete_and_exit(struct completion *c, long retval);</code>
 
 ## 3. Spinlocks
-Mặc dù semaphore rất hữu ích, nhưng hầu hết các locking trong kernel được thực hiện bằng một kỹ thuật tên là spinlock. Không giống như semaphores, spinlocks có thẻ được sử dụng được ở trong các đoạn code không thể sleep, ví dụ như các interrupt handlers. Khi được sử dụng đúng cách, spinlock cung cấp hiệu năng cao hơn so với semaphore. Tuy nhiên spinlock cũng có một tập các ràng buộc riêng của nó.<br/>
+Mặc dù mutex rất hữu ích, nhưng trong kernel việc xử lý race condition được thực hiện bằng một kỹ thuật tên là spinlock. Không giống như mutex, spinlocks có thẻ được sử dụng được ở trong các đoạn code không thể sleep, ví dụ như các interrupt handlers. Khi được sử dụng đúng cách, spinlock cung cấp hiệu năng cao hơn so với mutex. Tuy nhiên spinlock cũng có một tập các ràng buộc riêng của nó.<br/>
 
 Một spinlock là một mutual exclusion device có thể có hai và chỉ hai trạng thái "locked" và "unlocked". Nó thường được implement như một bit trong một số int. <br/>
-Nếu như lock là khả dụng, thì "locked" bit được set và code sẽ tiếp tục thực thi (đi vào critical section). Ngược lại, nếu một ai đó đã set bit "locked" từ trước, thì code sẽ đi vào một vòng lặp nhỏ, và lặp đi lặp lại việc kiểm tra lock cho đến khi bit "locked" được unset. Vòng lặp này được gọi là <code>spin</code>. <br/>
+Nếu như lock là khả dụng, thì "locked" bit được set và code sẽ tiếp tục thực thi (đi vào critical section). Ngược lại, nếu một ai đó đã set bit "locked" từ trước, thì code sẽ đi vào một vòng lặp nhỏ, và lặp đi lặp lại việc kiểm tra lock cho đến khi bit "locked" được unset. Vòng lặp này được gọi là <code>spin</code>. <br/> Đây cũng là điểm khác biệt giữa Mutex và Spinlock.
 Tất nhiên, việc set và unset "locked" bit cần được thực hiện trong ngữ cảnh atomic, điểu này đảm bảo rằng chỉ có một thread duy nhất có thể dành được lock, kể cả nếu như có nhiều spin đang hoạt động.<br/>
 Cần cẩn thận với deadlocks trên hyperthreaded processors.<br/>
 Spinlock được tạo ra để hướng đến việc sử dụng trên multiprocessor systems.
 
 ## 4. Spinlock API
-file header <code>linux/spinlock.h</code><br/>
-Khởi tạo spinlock ở compile time: 	<code>DEFINE_SPINLOCK(lock);</code><br/>
-Khởi tạo spinlock ở runtime:		<code>void spin_lock_init(spinlock_t *lock);</code><br/>
+Để sử dụng được spinlock trong kernel thì các config CONFIG_PREEMPT và CONFIG_SMP phải được enable.
+Các hàm và cấu trúc liên quan của spinlock được khai báo trong file header <code>linux/spinlock.h</code><br/>
+Và cũng giống như mutex, spinlock api cung cấp hai khả năng khởi tạo một spinlock: 
+   - Khởi tạo spinlock ở compile time: 	<code>DEFINE_SPINLOCK(lock);</code><br/>
+   - Khởi tạo spinlock ở runtime:		<code>void spin_lock_init(spinlock_t *lock);</code><br/>
+
 Trước khi vào miền găng, cần phải dành được lock bằng lời gọi hàm sau:<br/>
 <code>spin_lock(spinlock_t *lock);</code><br/>
 Khi code của bạn gọi hàm này, nó sẽ spin đến khi lock khả dụng, lưu ý là tất cả các spin là không thể ngắt.(Cẩn thận deadlock)<br/>
@@ -82,13 +85,13 @@ Sau khi thực hiện xong các tác vụ cần thiết, chúng ta giải phóng
 
 ## 5. Spinlocks and atomic context
 
-Thử tưởng tượng trong lúc driver của bạn đang yêu cầu một spinlock và đang chuẩn bị thực hiện công việc của nó trong miền găng thì ở một nơi nào đó, nó bị mất quyền sử dụng processor.(Có thể nó gọi đến một hàm nào đó khiến pocess sleep). Hoặc trong hệ thống SMP, kernel kick nó ra và higher-priority process gạt code của bạn sang một bên. Vấn đề là, hiện tại code của bạn heienj tại đang giữ lock, và nó sẽ không được giải phóng tại bất kỳ thời điểm có thể dự báo trong tương lai. Nếu một số thread khác cố gắng lấy cùng lock đó, nó sẽ đợi thời gian rất dài. Trong trường hợp tệ nhất, toàn hệ thống có thể rơi vào deadlock. <br/>
+Thử tưởng tượng trong lúc driver của bạn đang yêu cầu một spinlock và đang chuẩn bị thực hiện công việc của nó trong miền găng thì ở một nơi nào đó, nó bị mất quyền sử dụng processor.(Có thể nó gọi đến một hàm nào đó khiến pocess sleep). Hoặc trong hệ thống SMP, kernel kick nó ra và higher-priority process gạt code của bạn sang một bên. Vấn đề là, hiện tại code của bạn hiện tại đang giữ lock, và nó sẽ không được giải phóng tại bất kỳ thời điểm có thể dự báo trong tương lai. Nếu một số thread khác cố gắng lấy cùng lock đó, nó sẽ đợi thời gian rất dài. Trong trường hợp tệ nhất, toàn hệ thống có thể rơi vào deadlock. <br/>
 
 May mắn là, spinlock có thể xử lý trường hợp kernel preemption bởi chính nó. Mỗi khi code holds một spinlock. preemption sẽ bị vô hiệu hóa trên processor liên quan. Kể cả đối với hệ thống đơn tiến trình, preemption cũng cần được vô hiệu hóa theo cách này để tránh vi phạm các nguyên tắc của miền găng. (Do đó spinlock cần sử dụng một cách chính xác nếu không hiệu năng hệ thống sẽ bị giảm kinh khủng).<br/>
 
 Tuy nhiên, việc tránh cho process sleep trong khi đang giữ lock là một điều khó khăn hơn nhiều; nhiều kernel functions có thể sleep, và điều này không phải lúc nào cũng được ghi chép một cách rõ ràng trong tài liệu. Do đó khi sử dụng spinlock, cần phải quan tâm đến tất cả function liên quan trong code của bạn.<br/>
 
-Một kịch bản deadlock khác. Giả như driver của bạn đang excute và vừa mới lấy được lock để truy cập vào device của nó. Trong khi lock được giữ của driver, thì device thực hiện một interrupt, điều này khiến cho interrupt handler bắt đầu run. Interrupt handler, trước khi truy cập device, phải lấy được lock. Việc lấy spinlock từ một interrupt handler là điều không nên làm(không được phép làm); đây cũng là 1 trong những lý do mà spinlock operations không sleep. Nhưng điều gì sẽ xảy ra nếu interrupt routine thực thi trên cùng một processor với driver code đang giữ lock? Trong khi interrupt handler đang spinning, thì noninterrupt code sẽ không thể thực thi cũng như giải phóng lock được. Điều này khiến cho processor này sẽ spin mãi mãi. Để giải quyết nghịch cảnh này, yêu cầu cấp thiết là phải disable interrupt trên locl CPU khi spinlock đang được giữ. May mắn là có nhiều spinlock functions có thể làm được điều này. <br/>
+Một kịch bản deadlock khác. Giả như driver của bạn đang excute và vừa mới lấy được lock để truy cập vào device của nó. Trong khi lock được giữ của driver, thì device thực hiện một interrupt, điều này khiến cho interrupt handler bắt đầu được thực thi. Interrupt handler, trước khi truy cập device, phải lấy được lock. Việc lấy spinlock từ một interrupt handler là điều không nên làm(không được phép làm); đây cũng là 1 trong những lý do mà spinlock operations không sleep. Nhưng điều gì sẽ xảy ra nếu interrupt routine thực thi trên cùng một processor với driver code đang giữ lock? Trong khi interrupt handler đang spinning, thì noninterrupt code sẽ không thể thực thi cũng như giải phóng lock được. Điều này khiến cho processor này sẽ spin mãi mãi. Để giải quyết nghịch cảnh này, yêu cầu cấp thiết là phải disable interrupt trên locl CPU khi spinlock đang được giữ. May mắn là có nhiều spinlock functions có thể làm được điều này. <br/>
 
 Luật lệ quan trọng cuối cùng trong việc sử dụng spinlock là spinlocks phải luôn luôn được giữ trong khoảng thời gian ngắn nhất có thể. Spinlock bị giữ càng lâu, thì processor đợi spinlock sẽ bị block càng lâu, và nguy cơ các processor này rơi vào spinning khác càng nhiều hơn. Thời gian giữ lock dài cũng khiến processor đứng trong scheduler lâu hơn, điều này khiến cho process khác có priority cao hơn phải đợi lâu hơn. <br/>
 
@@ -96,27 +99,24 @@ Một driver được viết tệ hại có thể khiến tất cả các proces
 
 ## 6. Spinlock Functions.
 a. Các function có thể lock một spinlock
-<code>void spin_lock(spinlock_t *lock);</code> //Đã nói ở phần trên <br/>
-<code>void spin_lock_irqsave(spinlock_t *lock, unsigned long flags);</code><br/>
-Hàm này sẽ disable interrupts(local processor only) trước khi obtain spinlock.<br/>
-<code>
-void spin_lock_irq(spinlock_t *lock);
-</code><br/>
-Giống hàm trên nhưng nó không lưu lại trạng thái của interrupt mà sẽ luôn enable interrupts khi code giải phóng spinlock.<br/>
-<code>void spin_lock_bh(spinlock_t *lock);</code><br/>
-Hàm này vô hiệu hóa software interrupts trước khi obtain lock, nhưng vẫn để hardware interrupts hoạt động.<br/>
+Spinock api cung cấp khá nhiều hàm lock để sử dụng trong các ngữ cảnh khách nhau
+   - <code>void spin_lock(spinlock_t *lock);</code> //Đã nói ở phần trên <br/>
+   - <code>void spin_lock_irqsave(spinlock_t *lock, unsigned long flags);</code>Hàm này sử dụng khi bạn cần lock giữa HARD IRQ và bottom half<br/>
+   - <code>void spin_lock_irq(spinlock_t *lock)</code><br/> Giống hàm trên nhưng nó không lưu lại trạng thái của interrupt mà sẽ luôn enable interrupts khi code giải phón spinlock.<br/>
+   - <code>void spin_lock_bh(spinlock_t *lock);</code><br/>Sử dụng khi cần tạo lock giữa Process context và Bottom half interrupt. Hàm này vô hiệu hóa software interrupts trước khi obtain lock, nhưng vẫn để hardware interrupts hoạt động.<br/>
 b. Tương ứng với các hàm trên chúng ta có 4 hàm để unlock một spinlock
-<code>void spin_unlock(spinlock_t *lock);</code><br/>
-<code>void spin_unlock_restore(spinlock_t *lock, unsigned log flags);</code><br/>
-<code>void spin_unlock_irq(spinlock_t *lock);</code><br/>
-<code>void spin_unlock_bh(spinlock_t *lock);</code><br/>
+   - <code>void spin_unlock(spinlock_t *lock);</code><br/>
+   - <code>void spin_unlock_restore(spinlock_t *lock, unsigned log flags);</code><br/>
+   - <code>void spin_unlock_irq(spinlock_t *lock);</code><br/>
+   - <code>void spin_unlock_bh(spinlock_t *lock);</code><br/>
 
 <br/><br/>no blocking version<br/>
-<code>int spin_trylock(spinlock_t *lock);</code><br/>
-<code>int spin_trylock_bh(spinlock_t *lock);</code><br/>
+   - <code>int spin_trylock(spinlock_t *lock);</code><br/>
+   - <code>int spin_trylock_bh(spinlock_t *lock);</code><br/>
+
 
 ## 7. Practice make perfect
-Bây giờ đến phần ví dụ, phần này sẽ dùng lại device driver đã viết trong bài  <a href="{{ site.url }}/_post/2017-12-18-character-device.md">Character device</a>, và thêm phần xử lý miền găng vào. Nhưng trước hết, hãy viết một user-program để việc test được dễ dàng và rõ ràng hơn. Tạo một file code mới có tên là: <code>oni_test_app.c</code>
+Bây giờ đến phần ví dụ, phần này sẽ dùng lại device driver đã viết trong bài  <a href="{{ site.url }}/linux device driver/character-device">Character device</a>, và thêm phần xử lý miền găng vào. Nhưng trước hết, hãy viết một user-program để việc test được dễ dàng và rõ ràng hơn. Tạo một file code mới có tên là: <code>oni_test_app.c</code>
 {% highlight c %}
 #include<stdio.h>
 #include<stdlib.h>
