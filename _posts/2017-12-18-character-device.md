@@ -56,7 +56,7 @@ dev_t có kích thước là 32-bit, với 12 bit dùng cho Major number và 20 
 Tương tự, nếu như chúng ta đã biết major và minor của một device, chúng ta có thể tìm ra device number của nó bằng Macro: ```MKDEV(int major, int minor)```
 
 ## 2. Các cấu trúc dữ liệu quan trọng.
-<span style="color: red; font-size:300%"><b>ĐOẠN NÀY VIẾT VÀO CHO DÀI BÀI THÔI, KHÔNG CÓ TÁC DỤNG GÌ ĐÂU, KHỎI ĐỌC :GACH:</b></span>
+<p style="color: red; font-size:300%"><b>ĐOẠN NÀY VIẾT VÀO CHO DÀI BÀI THÔI, KHÔNG CÓ TÁC DỤNG GÌ ĐÂU, KHỎI ĐỌC :GACH:</b></p>
 Hầu hết các tác vụ cơ bản của driver gọi đến 3 kernel data structure quan trọng, đó là: file_operations, file và inode.
 ### 2.1. File Operations - fops
 (linux/fs.h)
