@@ -107,7 +107,7 @@ Khi insert module này vào hệ thống, dmesg sẽ hiển thị log sau:
 {% endhighlight %}
 
 Mình đang chạy thử nó trên x86_64, và như nói ở trên thì HZ của platform này là 250, tức là 1 jiffies sẽ tương đương với 4ms.
-Theo log trên ta có fired_time - started_time = 4297990134 - 4297990083 = 51 jiffies * 4ms = 204 ms. (4ms là delta nhỏ ở trên, do printk tạo ra iterrupt). Tức là timer của mình chạy đủ 200ms. 
+Theo log trên ta có fired_time - started_time = 4297990134 - 4297990083 = 51 jiffies * 4ms = 204 ms. (4ms là delta nhỏ ở trên). Tức là timer của mình chạy đủ 200ms. 
 
 ## 4. High-resolution timer API
 Như đã nói ở phần đầu thì kernel còn một loại timer nữa là <b>hrtimer - high resolution timer</b>, tạm dịch là timer độ chính xác cao: hrtimer cho độ chính xác tới nano secs. Khác với standard timer được xây dụng dựa trên giá trị jiffer, thì <code>hrtimer</code> lại sử dụng giá trị <i>ktime</i> làm đơn vị đo, kernel cung cấp hàm ktime_set để chuyển đổi từ thời gian thông thường thành ktime. Hrtimer cũng được biểu diễn bằng một struct tên là <code>hrtimer</code>.
@@ -169,3 +169,51 @@ u64 hrtimer_forward_now(struct hrtimer *timer, ktime_t interval);
 {% endhighlight %}
 
 ## 5. HRT example.
+Một ví dụ tương tự phần trước, nhưng thay vì sử dụng timer_list, mình sẽ dùng hrtimer. 
+
+{% highlight c %}
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/hrtimer.h>
+#include <linux/ktime.h>
+
+MODULE_LICENSE("GPL");
+
+static struct hrtimer oni_hrt;
+
+//Chọn timer không restart.
+enum hrtimer_restart oni_hrt_callback(struct hrtimer *timer){
+  printk("oni_hrt_cb called (%ld). \n", jiffies);
+  return HRTIMER_NORESTART;
+}
+
+int init_module(void) {
+  printk("ONI: Module installing\n");
+  ktime_t ktime = ktime_set(0, 200 * 1000000); //0s + 200ms
+  //Sử dụng thời gian tương đối.
+  hrtimer_init(&oni_hrt, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+  oni_hrt.function = &oni_hrt_callback;
+  printk("ONI: Timer started at (%ld) jiffies\n", jiffies);
+  hrtimer_start(&oni_hrt, ktime, HRTIMER_MODE_REL); //Bắt đầu chạy timer.
+  return 0;
+}
+
+void cleanup_module(void) {
+  int ret;
+  ret = hrtimer_cancel(&oni_hrt);
+  if (ret) {
+    printk("Cannot cancel hrtimer\n");
+  }
+
+  printk("HRtimer: bye bye\n");
+  return;
+}
+{% endhighlight %}
+
+Khi thêm module trên vào hệ thống, ta thu được log sau. Có thể thấy là nó chính xác đúng 200ms luôn 0o0.
+
+{% highlight shell %}
+[17185.811269] ONI: Module installing
+[17185.811270] ONI: Timer started at (4299188837) jiffies
+[17186.011273] oni_hrt_cb called (4299188887). 
+{% endhighlight %}
