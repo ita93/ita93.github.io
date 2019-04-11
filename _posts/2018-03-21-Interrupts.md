@@ -8,12 +8,10 @@ comments: true
 
 # Interrupts
 
-Trong máy tính luôn có các thiết bị ngoại vi, các thiết bị này có tốc độ hoạt động chậm hơn processor rất nhiều, vì thế hầu như luôn luôn processor cần chờ đợi các sự kiện ngoại vi, bởi thế cần có một cách nào đó để các thiết bị này thông báo cho processor mỗi khi có một sự kiện nào đấy xảy ra với nó. <br/>
+Các interrupt được tạo ra từ các tín hiệu điện từ thiết bị phần cứng dùng để thông báo cho interrupt controler khi có sự kiện gì đó xảy ra, và nó cần được xử lý. Khi Interrupt controler nhận được một interrupt, nó sẽ gửi một tín hiệu tới Processor. Processor phát hiện tín hiệu này và nó sẽ tạm ngắt công việc nó đang thực thi để xử lý interrupt. Processor có thể thông báo cho OS, và OS sẽ xử lý interrupt này một cách hợp lý.
+Các device khác nhau được liên kết với các interrupt khác nhau. Điều này cho phép OS phân biệt được các interrupt và biết được thiết bị nào tạo ra ịnterrupt đó.
 
-Cách liên lạc đấy chính là <b>Interrupt</b>. Một <i>interrupt</i> đơn giản là một tín hiệu (signal) mà các thiết bị phần cứng (hoặc có thể là phần mềm) gửi khi nó muốn gây sự chú ý với processor (thả thính). Linux xử lý các interrupt giống như cách nó xử lý các singal trong user space. Một driver chỉ cần đăng ký một handler cho các interrupt của nó, và xử lý chúng một cách hợp lý khi xảy ra.<br/>
-Bài viết này sẽ tìm hiểu cơ bản về interrupt cùng ví dụ xử lý keyboard interrupt cho máy PC intel.
-
-<span style="color:blue">Lưu ý</span>: Interrupt handler chạy trong interrupt context (song song với context hiện tại, chạy một cách đồng thời).<br/><br/>
+<span style="color:blue">Lưu ý</span>: Interrupt handler chạy trong interrupt context, khác với process context, interrupt context không ngắt được<br/><br/>
 
 ## 1. Cài đặt một interrupt handler.<br/>
 
@@ -159,7 +157,7 @@ Bây giờ khi load module vào thì dmesg sẽ in ra dòng: "Something here", v
 ### 4.2 Workqueues
 Workqueue, cũng tương tự như tasklet, cho phép kernel code yêu cầu một function thực hiện tại một thời điểm trong tương lai. Tuy nhiên có nhiều điểm khác biệt lớn giữa tasklet và workqueue:
 - Tasklet chạy trong software interrupt context, nên tasklet code phải là atomic. Trong khi, workqueue function chạy trong context của một kernel process đặc biệt, kết quả là nó linh hoạt hơn, thực tế, nó có thể ngủ được.
--Cả Workqueue và  Tasklet luôn luôn chạy trong processor đã submit lệnh yêu cầu chạy nó.
+- Cả Workqueue và  Tasklet luôn luôn chạy trong processor đã submit lệnh yêu cầu chạy nó.
 - Kernel code có thể yêu cầu workqueue function được gọi sau một khoảng delay rõ ràng, chứ không phải kiểu sống chết mặc bay của tasklet.
 Do những khác biết trên, tasklet thực thi nhanh hơn và an toàn hơn nên được ưa dùng trong các interrupt handler.
 Như hầu hết các kỹ thuật Sleep khác, Workqueue cũng sử dụng một strucutre để khai báo, cầu trúc này định nghĩa trong header linux/workqueue.h. Để sử dụng workqueue, cần tạo nó trước khi sử dụng bằng một trong hai hàm sau
