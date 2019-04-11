@@ -19,7 +19,7 @@ Trong character driver, có implement hai hàm: read() và write(). Thử tưở
 -Rule 4: Khi một sleeping kthread được wake up thì nó không thể biết là nó đã bị loại ra khỏi CPU được bao lâu, và trong thời gian đó, đã xảy ra những thay đổi nào. Do đó, chúng ta không thể tạo ra một giả thuyết nào về trạng thái của hệ thống sau khi wake up kthread, mà phải kiểm tra xem những điều kiện cần thiết có đảm bảo không.<br/>
 -Rule 5: Chỉ sleep khi chắc chắn rằng có một ai đó sẽ đánh thức bạn trong một thời điểm nào đó. Ngược lại hệ thống sẽ bị hang. Để làm được điều này thì có một yêu cầu nữa là awaker cần phải tìm được bạn để đánh thức.<br/><br/>
 
-## 2 Wait Quue là gì?
+## 2 Wait Queue là gì?
 Wait queues được sử dụng khi một task có trạng thái RUNNING trong kernel phải đợi một điều kiện nào đó xảy ra để có thể tiếp tục thực thi. Ví dụ như như hàm read() write() ở phần intro đã nói.
 
 Đối với những task này, việc đưa nó vào trạng thái sleep (không làm gì cả) cho đến khi điều kiện (flag) nó chờ chuyển thành true hoặc tài nguyên nó cần có thể sử dụng được. Lúc này ta cần phải được đưa nó về trạng thái thực thi, bằng cách đánh thức nó. Trong kernel, các thao tác này thực hiện bằng <b><span style="color:red">WAIT QUEUE</span></b>
