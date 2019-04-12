@@ -6,10 +6,15 @@ category: Linux device driver
 comments: true
 ---
 
-<code>kmalloc</code> rất hữu ích và tương đối dễ sử dụng, nó nhanh. Một đặc điểm của kmalloc là sau khi nó cấp pháp một vùng nhớ mới cho người yêu cầu, thì nội dung hiện tại của vùng nhớ này vẫn nằm nguyên, không hề bị xóa đi. Do Kernel là DMA nên allocated region là liên tục trên bộ nhớ vật lý. Bài này sẽ tìm hiểu về công cụ này.
+# Quản lý và Cấp phát bộ nhớ trong Linux kernel.
 
-## 1 Flag Argument.
-Mình đã từng dùng malloc trong bài ioctl, tuy nhiên bây giờ mới đến đoạn tìm hiểu về nó (hí hí). Prototype của hàm này như sau:
+## 1 Bộ nhớ vật lý và bộ nhớ ảo.
+Tương tự như các hệ điều hành khác trong thời đại chó lên cung trăng ngày nay, Linux cũng sử dụng một hệ thống gọi là : Hệ thống bộ nhớ ảo - Virtual Memory (VM), tất nhiên là kích thước của VM có thể lớn hơn kích thước của bộ nhớ thật.
+Trong Linux (mà OS khác cũng thế), mỗi process có một không gian địa chỉ riêng. Các địa chỉ này đều là các địa chỉ ảo, và khi process muốn truy cập đến Memory thì kernel sẽ giúp nó ánh xạ các địa chỉ này sang các địa chỉ vật lý tương ứng, việc này được thực hiện hoàn toàn bởi kernel, process trong Userspace không có ý thức về hành động này.
+Kể cả trong kernel thì địa chỉ cũng là các địa chỉ ảo, tuy nhiên việc ánh xạ địa chỉ ảo trong kernel sang địa chỉ vật lý đơn giản hơn nhiều so với các process trong User space. Trong kernel phép ánh xạ từ địa chỉ ảo sang địa chỉ vật lý (và ngược lại) đơn giản chỉ là một phép cộng (hoặc trừ) một đơn vị offset nào đó, giá trị của offset phụ thuộc vào platform đang sử dụng.
+
+## 2 Kmalloc.
+Mình đã từng dùng kmalloc trong bài ioctl, tuy nhiên bây giờ mới đến đoạn tìm hiểu về nó (hí hí). Prototype của hàm này như sau:
 {% highlight c %}
 #include <linux/slab.h>
 void *kmalloc(size_t size, int flags);
@@ -37,13 +42,13 @@ Trong phần giải thích các flag ở trên, có đề cập đến Memory zo
 Trong linux kernel có ít nhất 3 mem zone: DMA, normal và high memory. Thông thường việc cấp phát diễn ra ở <i>normal</i> zone, tuy nhiên có thể được setup bằng cách sử dụng một số cờ nhất định.
 DMA mem là bộ nhớ cho phép thực hiện DMA access. <i>High mem</i> là kỹ thuật sử dụng để cho phép truy cập đến một lượng memory tương đối lớn trên 32-bit platforms.<br/>
 
-## 2. Size argument
+## 3 Size argument
 Kernel quản lý system's physical mem, nó chỉ khả dụng trong các page-sized chunk. Kernel sử dụng page-oriented allocation technique để cấp phát bộ nhớ (thay vì head-oriented như malloc).<br/>
 Linux xử lý các yêu cầu cấp phát bộ nhơ bằng cách tạo ra một tập các pool của các mem objects có kích thước cố định. Các yêu cầu cấp phát được xử lý bằng cách tìm đến một pool đang giữ số lượng object đủ lớn và trao toàn bộ một mem chunk cho người đã request.<br/>
 Kernel chỉ có thể cấp phát một mảng cố định về kích thước (đã được định nghĩa từ trước) các bytes. Nếu bạn yêu cầu một lượng bộ nhớ bất kỳ, thông thường bạn sẽ nhận được nhiều hơn một ít những gì bạn yêu cầu (fragmentation), có thể lên đến gấp đôi.<br/>
 memory chunk được cấp phát bởi <i>kmalloc</i> có giới hạn tùy thuộc vào config và arch, lớn nhất là 128KB thì phải. Trong trường hợp cần nhiều bộ nhớ hơn, thì <code>kmalloc</code> không phải là lựa chọn tốt nhất.<br/>
 
-## 3. Lookaside caches.
+## 4 Lookaside caches.
 <i>Lookaside cache</i> là một pool đặc biệt, được sử dụng cho các high-volume object (các object sử dụng nhiều bộ nhớ).<br/>
 Cache manager trong kernel được gọi là slab allocator, khai báo trong <code>linux/slab.h</code> header. Slab allocator implement các cache có kiểu dữ liệu <code>kmem_cache_t</code>; chúng được tạo ra bằng cách gọi hàm <code>kmem_cache_create</code>. Prototye như sau:
 {% highlight c %}
@@ -76,7 +81,7 @@ Khi driver code làm xong việc với cache, nó phải free cache:
 int kmem_cache_destroy(kmem_cache_t *cache);
 {% endhighlight %}
 
-## 4. Memory Pools
+## 5 Memory Pools
 Đôi lúc, việc cấp phát bộ nhớ bắt buộc phải không được thất bại. Để handle được các trường hợp này, linus cung cấp một abstraction tên là <i>mempool</i>. Một mempool thực tế chỉ là một dạng của <i>lookaside cache</i>, nó luôn luôn có gắng gữ lại một list các vùng nhớ free để dùng cho trường hợp khẩn cấp.<br/>
 Để tạo một mempool, cần thực hiện như sau:
 {% highlight c %}
@@ -115,7 +120,7 @@ void mempool_destroy(mempool_t *pool);
 {% endhighlight %}
 Lưu ý là cần phải return tất các các allocated object (mempool_free) trước khi giải phóng pool, hoặc sẽ gặp kernel oops. 
 
-## 5. get_free_page and Friends.
+## 6 get_free_page and Friends.
 Nếu một module muốn sử dụng rất nhiều mem, thì tốt nhất là nên sử dụng kỹ thuật page-oriented. Để allocate page, sử dụng một trong các hàm sau:
 {% highlight c %}
 get_zeroed_page(unsigned int flags);
