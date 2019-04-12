@@ -6,8 +6,6 @@ category: Linux device driver
 comments: true
 ---
 
-# Quản lý và Cấp phát bộ nhớ trong Linux kernel.
-
 ## 1 Bộ nhớ vật lý và bộ nhớ ảo.
 Tương tự như các hệ điều hành khác trong thời đại chó lên cung trăng ngày nay, Linux cũng sử dụng một hệ thống gọi là : Hệ thống bộ nhớ ảo - Virtual Memory (VM), tất nhiên là kích thước của VM có thể lớn hơn kích thước của bộ nhớ thật.
 Trong Linux (mà OS khác cũng thế), mỗi process có một không gian địa chỉ riêng. Các địa chỉ này đều là các địa chỉ ảo, và khi process muốn truy cập đến Memory thì kernel sẽ giúp nó ánh xạ các địa chỉ này sang các địa chỉ vật lý tương ứng, việc này được thực hiện hoàn toàn bởi kernel, process trong Userspace không có ý thức về hành động này.
