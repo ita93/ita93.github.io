@@ -22,7 +22,7 @@ Bởi vì các barrier sẽ ảnh hưởng đến hiệu năng chung, nên chỉ
 
 ## 2. Đăng ký I/O ports.
 Trước khi sử dụng I/O ports, chúng ta cần đăng ký với kernel việc sử dụng các port muốn dùng thông qua hàm <code>request_region()</code> và giải phóng vùng nhớ đã đăng ký bằng <code>release_region</code> sau khi sử dụng xong.
-{% highlgiht c %}
+{% highlight c %}
 #include <linux/ioports.h>
 struct resource *request_region(unsinged long from, unsigned long extent, const char *name);
 void release_region(unsigned long from, unsigned long extent);
