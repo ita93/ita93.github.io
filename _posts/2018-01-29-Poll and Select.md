@@ -5,7 +5,7 @@ category: Linux device driver
 
 comments: true
 ---
-# Poll and Select (Tiếp [Non]Blocking I/O)
+
 
 ## I. Poll and Select
 Các ứng dụng(user-app) sử dụng nonblocking I/O sẽ thường sử dụng thêm <code>poll, select và epull </code>system call. <i>poll, select, epoll</i> có cùng 1 chức năng: cho phép một process xác định xem nó có thể đọc hoặc ghi từ một hoặc nhiều open file mà không bị block hay không. Những lời gọi hàm này cũng có thể block một process đến khi có một tập file descriptors(fd) trở nên khả dụng cho việc đọc hoặc ghi. Bởi thế, chúng thường được sử dụng trong các user-app cần phải sử dụng nhiều luồng đọc/ghi cùng lúc mà không có bất kỳ luồng nào bị stuck(V/d: network). <br/><br/>

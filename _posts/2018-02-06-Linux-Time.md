@@ -5,7 +5,7 @@ category: Linux device driver
 
 comments: true
 ---
-# Linux Kernel Time.
+
 ## 1. Linux Time .
 Trong Linux kernel, thời gian được đo bằng một biến golbal tên là <code> jiffies </code>. Jiffies là biến kiểu <code>usigned long</code> và có giá trị bằng số lần xảy ra ngát của iterrrupt timer kể từ khi hệ thống được khởi động. Tần số của ngắt này được khai báo trong biến <code>HZ</code> và biến này có thể được cấu hình ở thời điểm biên dịch (CONFIG_HZ), tuy nhiên nếu như không có nhu cầu gì đặc biệt thì tốt nhất nên để nó ở giá trị mặc định (250HZ trên x86_64).
 

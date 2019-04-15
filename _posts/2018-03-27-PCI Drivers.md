@@ -5,7 +5,6 @@ category: Linux device driver
 
 comments: true
 ---
-# PCI Drivers.
 
 ## 1 PCI Interface.
 Cái PCI này có thể nghe rất quen, rất quen thuộc với nhiều người, nếu ai từng cài win(hộ) và lúc cài driver(Windows8-10 thì chắc ít gặp vì nó tự cài từ hồi nào rồi) thì chắc chắn sẽ phải cài một số driver có tên là PCI gì gì đấy, hoặc giả bạn không cài PCI driver cho windows thì sound, mạng mẽo các thứ sẽ không dùng được kể cả bạn có cài driver mạng hay âm thanh rồi đi chăng nữa. Nếu bạn từng tìm cách sửa lỗi bằng cách scan new hardware trong Device Manager của Windows thì nếu để ý bạn cũng có thể thấy một số device PCI gì gì đấy ở đây. Vậy PCI là cái gì?

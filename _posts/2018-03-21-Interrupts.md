@@ -6,8 +6,6 @@ category: Linux device driver
 comments: true
 ---
 
-# Interrupts
-
 Các interrupt được tạo ra từ các tín hiệu điện từ thiết bị phần cứng dùng để thông báo cho interrupt controler khi có sự kiện gì đó xảy ra, và nó cần được xử lý. Khi Interrupt controler nhận được một interrupt, nó sẽ gửi một tín hiệu tới Processor. Processor phát hiện tín hiệu này và nó sẽ tạm ngắt công việc nó đang thực thi để xử lý interrupt. Processor có thể thông báo cho OS, và OS sẽ xử lý interrupt này một cách hợp lý.
 Các device khác nhau được liên kết với các interrupt khác nhau. Điều này cho phép OS phân biệt được các interrupt và biết được thiết bị nào tạo ra ịnterrupt đó.
 

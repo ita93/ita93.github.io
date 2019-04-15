@@ -5,7 +5,7 @@ category: Linux device driver
 
 comments: true
 ---
-# Input/Output Control
+
 Như đã biết thì Linux OS chia bộ nhớ thành 2 phần riêng biệt là user space và kernel space. Kernel space dùng để thực thi kernel, các extensions của nó và hầu hết các device driver. Ngược lại Userspace là vùng nhớ mà tất cả các ứng dụng thường người làm việc, tất nhiên là tồn tại nhu cầu để giao tiếp giữa 2 phần này với nhau. Trong Linux chúng ta có thể dùng một số phương pháp phục vụ mục đích này như: ioctl, procfs, sysfs,... Trong bài này diễn viên chính sẽ là ioctl.
 
 ioctl = Input and Output Control, được sử dụng để userspace giao tiếp với device driver. Phần lớn ioctl được sử dụng trong các trường hợp mà một số thao tác đặc thù của một device không được hỗ trợ bởi một systemcall mặc định.

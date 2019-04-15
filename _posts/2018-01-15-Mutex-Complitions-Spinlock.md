@@ -5,7 +5,6 @@ category: Linux device driver
 
 comments: true
 ---
-# Mutex - Complitions - Spinlock.
 
 ## 1. Mutex trong Linux.
 Mutex là gì ? Theo 1 góc nào đó trên wiki thì:  khái niệm "mutex" thường được sử dụng để mô tả một cấu trúc ngăn cản hai tiến trình cũng thực hiện một đoạn mã hoặc truy cập một dữ liệu cùng lúc. Trên góc nhìn thực tế đầy tiền mặt, thì chẳng hạn như có 1 cột ATM VCB đang dựng đấy, người nào muốn rút tiền thì phải nhét thẻ(card) và gõ pass mang tiền về. Rõ ràng là để đưa thẻ cho cây ATM thì cần tiếp cận được cái lỗ (nhận thẻ) của nó, có thể coi cãi lỗ đấy là key, ai sở hữu key đó thì mới có thể rút tiền được, ngược lại sẽ phải đứng đợi đến khi cái lỗ đấy trống để đút vào. 

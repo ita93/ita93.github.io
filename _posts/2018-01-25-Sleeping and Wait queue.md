@@ -5,7 +5,6 @@ category: Linux device driver
 
 comments: true
 ---
-# SLEEPING và WAIT QUEUE 
 
 Trong character driver, có implement hai hàm: read() và write(). Thử tưởng tượng, nếu như driver không thể thỏa mãn được request một cách tức thời, thì nó sẽ phản ứng như thế nào? Điều này tức là driver sẽ làm gì nếu như hàm <code>read()</code> được gọi khi dữ liệu chưa sẵn có, nhưng có thể nó sẽ có trong tương lai gần. Hoặc một process cố gắng thực hiện lệnh <code>write()</code> nhưng device chưa sẵn sàng nhận dữ liệu bởi vì buffer đang full. Trong trường hợp này, driver nên block process (user-space) lại, đưa nó vào tình trạng sleep cho đến khi các request có thể được thực thi.<br/>
 

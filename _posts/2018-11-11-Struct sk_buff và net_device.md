@@ -6,7 +6,6 @@ category: Linux Kernel.
 comments: true
 ---
 
-# Structure SK_BUFF
 
 Cùng với <code>net_dev</code> thì <code>struct sk_buff</code> là cấu trúc dữ liệu cực kỳ quan trọng trong Network subsystem của Linux. Các network packet được lược lưu trữ bằng cấu trúc này. Cấu trúc này đuọc sử dụng bởi tất cả các tầng của mạng để lưu trữ header của chúng, các thông tin về payload (data được tạo ra bởi người dùng từ user-space), và các thông tin khác cần thiết cho việc giao tiếp mạng.
 sk_buff được định nghĩa trong file header <code>include/linux/sk_buff.h</code>
