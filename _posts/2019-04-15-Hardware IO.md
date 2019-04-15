@@ -77,8 +77,7 @@ Hơn nữa, trong file <i>ioports</i> cũng có một entry mới được thêm
 $cat /proc/ioports | grep oni_dev
 0380-0384 : oni_dev
 {% endhighlight %}
-
-Hàm <code>request_region</code> sẽ trả về một con trỏ tới cấu trúc <code>struct resource</code>, cấu trúc này đã được đề cập trong bài <a href="{{ site.url }}/linux device driver/platform-device">Platform device</a>. Thực tế thì các hàm <code>*_region()</code> thật ra là wrapper của các hàm <code>request_resource</code> và <code>release_resource</code>, do đó bạn cũng có thể sử dụng các hàm <code>*_resource</code> để quản lý các I/O port.
+Hàm <code>request_region</code> sẽ trả về một con trỏ tới cấu trúc <code>struct resource</code>, cấu trúc này đã được đề cập trong bài <a href="{{ site.url }}/linux device driver/Platform-Device">Platform device</a>. Thực tế thì các hàm <code>*_region()</code> thật ra là wrapper của các hàm <code>request_resource</code> và <code>release_resource</code>, do đó bạn cũng có thể sử dụng các hàm <code>*_resource</code> để quản lý các I/O port.
 
 ## 3. Đọc và Ghi Dữ liệu với các I/O register.
 Trong file asm/io.h, kernel định nghĩa các hàm đọc và ghi cho 8-bit, 16-bit và 32-bit ports.
@@ -106,7 +105,7 @@ void insw(unsigned long port_address, void * addr, unsigned long count);
 void insl(unsigned long port_address, void * addr, unsigned long count);
 {% endhighlight %}
 
-Nếu muốn test các hàm đọc ghi và bạn đang sử dụng một con PC intel, thì bạn có thể thử dùng I/O port từ <i>0x378</i> đến <i>0x37a</i> của parallel port, nhưng đừng request_region mà cứ dùng thẳng các hàm <code>outb()</code> và <code>inb()</code>
+Nếu muốn test các hàm đọc ghi và bạn đang sử dụng một con PC intel, thì bạn có thể thử dùng I/O port từ <i>0x378</i> đến <i>0x37a</i> của parallel port, nhưng đừng request_region mà cứ dùng thẳng các hàm <code>outb()</code> và <code>inb()</code>.
 
 ## 4. Cấp phát, Mapping, và sử dụng I/O Memory.
 Mặc dù phổ biến trong các thiết bị intel x86, nhưng I/O port không phải là kỹ thuật chính được sử dụng để Processor kết nối với các thiết bị ngoại vi, mà kỹ thuật đó chính là I/O Memory. 
@@ -149,3 +148,221 @@ void memset_io(void *addr, u8 value, unsigned int count);
 void memcpy_fromio(void *dest, void *source, unsigned int count);
 void memcpy_toio(void *dest, void *source, unsigned int count);
 {% endhighlight %}
+
+## 5. Ví dụ I/O memory.
+Sau khi đã trình bày đầy đủ các lý thuyết rườm rà buồn ngủ, thì việc đưa ra một ví dụ về việc sử dụng các API trên để hiểu rõ hơn về chúng là điều cần thiết. Tốt nhất nếu có device thật thì nên thử viết các module tương tác với I/O mem của device đó, để xe các side effect của nó, tuy nhiên nếu không có device thật thì cũng đừng lo, vẫn có thể làm quen với việc sử dụng các API này bình thường. 
+Sau đây mình sẽ tạo một module tương tác với một vùng nhớ ảo của hệ thống, sử dụng các API về I/O memory. Chương trình này sẽ là một character device driver, trong đó các hàm đọc ghi thay vì truy cập vào một vùng nhớ được tạo ra bằng <code>kmalloc</code> thì mình sẽ request và map một I/O memory region vào device này, và các hàm đọc ghi sẽ sử dụng các hàm <code>ioread*</code> và <code>iowrite*</code> để đọc và ghi dữ liệu vào vùng nhớ.
+
+Chương trình này sẽ tương đối giống với chương trình ví dụ trong bài <a href="{{ site.url }}/linux device driver/character-device">Character device</a>, chỉ thêm bớt một số điểm nho nhỏ :v.
+
+Mình sẽ chọn ghi vào I/O Memory region của VRAM, đầu tiên cần xác định xem region của nó là từ đâu đến đâu đã. Đầu tiên là dùng <code>lspci</code> để in ra danh sách các PCI device, và trên máy của mình thì entry của VGA là:
+{% highlight shell %}
+00:02.0 VGA compatible controller: Intel Corporation Xeon E3-1200 v3/4th Gen Core Processor Integrated Graphics Controller (rev 06)
+{% endhighlight %}
+Tức là chúng ta tìm device có id là 00:02.0 trong proc/iomem.
+
+{% highlight shell %}
+e0000000-efffffff : 0000:00:02.0
+    f0000000-f0003fff : 0000:02:00.0
+  f7800000-f7bfffff : 0000:00:02.0
+    f7d00000-f7d00fff : 0000:02:00.0
+{% endhighlight %}
+
+Tức là base address của nó là 0xe0000000. Bây giờ define hai biến sau:
+{% highlight c %}
+  #define VRAM_BASE 0xe0000000
+  #define VRAM_SIZE 0x00020000
+{% endhighlight %}
+
+Lưu ý là cái địa chỉ này nó phụ thuộc vào máy của bạn, và các side effect xảy ra khi bạn đọc ghi trên vùng nhớ đó cũng phụ thuộc vào máy của bạn.
+
+Trong hàm init của module, chúng ta sẽ request và remap cho memory region này:
+{% highlight c %}
+oni_res = request_mem_region(VRAM_BASE, VRAM_SIZE, DEV_NAME);
+if (oni_res == NULL) {
+  printk(KERN_ERR "Memory region is busy\n");
+  return EBUSY;
+}
+{% endhighlight %}
+Ở đây biến oni_res là biến có kiểu <i>strut resource *</i> (code full sẽ có cuối bài).
+
+Tiếp theo, thêm các hàm release và unmap vào hàm exit của module, để trả lại các địa chỉ này khi chúng ta không cần đến nó nữa.
+{% highlight c %}
+iounmap(oni_vram);
+release_mem_region(VRAM_BASE, VRAM_SIZE);
+{% endhighlight %}
+
+Tiếp theo, trong hàm <i>read</i> và <i>write</i>của <i>file_operations</i> mình sẽ dụng các hàm <code>ioread8()</code> và <code>iowrite8</code> để đọc và ghi các giá trị vào vùng nhớ I/O memory đã yêu cầu.
+Sau đây là source code đầy đủ của chương trình.
+
+{% highlight c %}
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/version.h>
+#include <linux/fs.h>
+#include <linux/cdev.h>
+#include <linux/device.h>
+#include <linux/err.h>
+#include <linux/uaccess.h>
+#include <linux/ioport.h>
+#include <asm/io.h>
+
+#define MINOR_BASE 0
+#define MINOR_COUNT 1
+#define DEV_NAME "oni_map"
+#define VRAM_BASE 0xe0000000
+#define VRAM_SIZE 0x00020000
+
+static void __iomem *oni_vram;
+static struct cdev oni_mapdev;
+static struct class *oni_class;
+static struct device *oni_device;
+static dev_t dev_num;
+static struct resource *oni_res;
+
+static int oni_open(struct inode* node, struct file* filp){
+  printk(KERN_INFO "Device file just open\n");
+  return 0;
+}
+
+static int oni_close(struct inode* node, struct file* filp){
+  printk(KERN_INFO "Device file just close\n");
+  return 0;
+}
+
+static ssize_t oni_read(struct file* filp, char __user *buffer, size_t count, loff_t* offset) {
+  u8 byte;
+  int i;
+  if (*offset > VRAM_SIZE) {
+    return -1;
+  } 
+
+  if (*offset + count > VRAM_SIZE) {
+    count = VRAM_SIZE - *offset;
+  }
+
+  for (i = 0; i< count; i++){
+    byte = ioread8(oni_vram + *offset + i);
+    if (copy_to_user(buffer + i, &byte, 1)) {
+      return -EFAULT;
+    }
+  }
+
+  *offset += count;
+  return count;
+}
+
+static ssize_t oni_write(struct file* filp, const char __user *buffer, size_t count, loff_t* offset) {
+  u8 byte;
+  int i;
+  if (*offset > VRAM_SIZE){
+    return -1;
+  }
+  
+  if (*offset + count > VRAM_SIZE) {
+    count = VRAM_SIZE - *offset;
+  }
+
+  for (i = 0; i < count; i++) {
+    if (copy_from_user(&byte, buffer + i, 1)){
+      return -EFAULT;
+    }
+    iowrite8(byte, oni_vram + *offset + i);
+  }
+  *offset += count;
+  return count;
+}
+
+struct file_operations oni_fops = {
+  .owner = THIS_MODULE,
+  .open = oni_open,
+  .release = oni_close,
+  .write = oni_write,
+  .read = oni_read
+};
+
+int __init oni_init(void) {
+  int ret;
+
+  //request memory region
+  oni_res = request_mem_region(VRAM_BASE, VRAM_SIZE, DEV_NAME);
+  if (oni_res == NULL) {
+    printk(KERN_ERR "Memory region is busy\n");
+    return EBUSY;
+  }
+  
+  oni_vram = ioremap(VRAM_BASE, VRAM_SIZE);
+  if (oni_vram == NULL) {
+    printk(KERN_ERR "Memory remapping failed\n");
+    release_mem_region(VRAM_BASE, VRAM_SIZE);
+    return EBUSY;
+  }
+
+  ret = alloc_chrdev_region(&dev_num, MINOR_BASE, MINOR_COUNT, DEV_NAME);
+  if (ret != 0)
+    goto done;
+
+  cdev_init(&oni_mapdev, &oni_fops); 
+  ret = cdev_add(&oni_mapdev, dev_num, MINOR_COUNT);
+  if (ret != 0){
+    goto un_region;
+  }
+
+  oni_class = class_create(THIS_MODULE, DEV_NAME);
+  if (IS_ERR(oni_class)) {
+    goto del_dev;
+  }
+
+  oni_device = device_create(oni_class, NULL, dev_num, NULL, DEV_NAME);
+  if (IS_ERR(oni_device)) {
+    goto destroy_all;
+  }
+
+  return 0;
+
+destroy_all:
+  class_destroy(oni_class);
+del_dev:
+  cdev_del(&oni_mapdev);
+  printk(KERN_ERR "Cannot create class\n");
+un_region:
+  unregister_chrdev_region(dev_num, MINOR_COUNT);
+  printk(KERN_ERR "Cannot add device to kernel\n");
+done:
+  printk(KERN_ERR "Cannot allocate a device number\n");
+  return -1;
+}
+
+void __exit oni_exit(void){
+  device_destroy(oni_class, dev_num);
+  class_destroy(oni_class);
+  cdev_del(&oni_mapdev);
+  unregister_chrdev_region(dev_num, MINOR_COUNT);
+  iounmap(oni_vram);
+  release_mem_region(VRAM_BASE, VRAM_SIZE);
+}
+
+module_init(oni_init);
+module_exit(oni_exit);
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Phi Nguyen");
+
+{% endhighlight %}
+
+Sau khi đã hoàn thành source code, mình sẽ compile nó, và insert nó vào hệ thống 
+{% highlight c %}
+$sudo insmod onimap.ko
+{% endhighlight %}
+
+Sau đấy mình sẽ ghi nội dung linh tinh vào device file (tức là sẽ gọi đến hàm write), lệnh này phải chạy bằng quyền root.
+{% highlight c %}
+$echo -n "132415645646598741346546467985413215676" > /dev/oni_map
+{% endhighlight %}
+
+Bây giờ đọc giá trị đã ghi vào bằng lệnh sau:
+{% highlight c %}
+$sudo cat /dev/onimap
+{% endhighlight %}
+
+Kết quả là trên màn hình sẽ hiện ra giá trị mà mình đã ghi vào cộng với một lô một lốc các ký tự đặc biệt theo sau vì cái vùng nhớ này giá trị mặc định của các ô nhớ là cái gì đấy không thể hiện lên dưới dạng ascii.
