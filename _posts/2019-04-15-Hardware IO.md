@@ -28,9 +28,55 @@ struct resource *request_region(unsinged long from, unsigned long extent, const 
 void release_region(unsigned long from, unsigned long extent);
 {% endhighlight %}
 
-Trong các hàm này thì <i>from</i> chính là base address của I/O region, còn <i>extent</i> là số lượng port mà chúng ta muốn đăng ký/ giải phóng.
+Trong các hàm này thì <i>from</i> chính là base address của I/O region, còn <i>extent</i> là số lượng port mà chúng ta muốn đăng ký/ giải phóng. Ngoài ra, chúng ta có thể kiểm tra xem các I/O port region nào đã được sử dụng bằng command <code>cat /proc/ioports</code>, nhớ phải chạy lệnh này bằng quyền sudo, ngược lại thì nó in ra toàn số 0.
 
 Lưu ý là việc trên là không bắt buộc, bạn thậm chí có thể truy cập vào một I/O region kể cả khi việc đăng ký thất bại, tuy nhiên nguy cơ tiềm ẩn các BUG không đoán trước được và khó debug có thể xảy ra.
+
+
+Một ví dụ đơn giản, module <i>sample_ioport</i> sẽ đăng ký một số I/O port sau đó sẽ giải phóng nó khi module exit.
+{% highlight c %}
+#include <linux/ioport.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
+
+MODULE_LICENSE("GPL");
+
+int __init oni_init(void) {
+  struct resource *res;
+  //request region
+  res = (struct resource *)request_region(0x380, 5, "oni_dev");
+  if (res != NULL) {
+    printk(KERN_INFO "Oni: Register region from 0x%llx to 0x%llx \n", res->start, res->end);
+  } else {
+    printk(KERN_ERR "Oni: Region has been claimed by other device\n");
+    return -EBUSY;
+  } 
+	return 0;
+}
+
+void __exit oni_exit(void) {
+  //release region
+  release_region(0x380, 5);
+  printk(KERN_INFO "Region freed\n");
+}
+
+module_init(oni_init);
+module_exit(oni_exit);
+{% endhighlight %}
+
+Ở đây mình request 5 port bắt đầu từ vị trí <b>0x380</b>, đây là một region mà mình thấy còn trống khi kiểm tra bằng cách cat nội dung của file <i>proc/ioports</i>.
+Sau khi insert module vừa viết vào hệ thống, thì dmesg sẽ có log như sau:
+{% highlight shell %}
+[ 7504.265791] Oni: Register region
+[ 7764.511573] Oni: Register region
+[ 8072.719936] Oni: Register region from 0x380 to 0x384 
+{% endhighlight %}
+
+Hơn nữa, trong file <i>ioports</i> cũng có một entry mới được thêm vào:
+{% highlight shell %}
+$cat /proc/ioports | grep oni_dev
+0380-0384 : oni_dev
+{% endhighlight %}
 
 Hàm <code>request_region</code> sẽ trả về một con trỏ tới cấu trúc <code>struct resource</code>, cấu trúc này đã được đề cập trong bài <a href="{{ site.url }}/linux device driver/platform-device">Platform device</a>. Thực tế thì các hàm <code>*_region()</code> thật ra là wrapper của các hàm <code>request_resource</code> và <code>release_resource</code>, do đó bạn cũng có thể sử dụng các hàm <code>*_resource</code> để quản lý các I/O port.
 
@@ -40,8 +86,8 @@ Trong file asm/io.h, kernel định nghĩa các hàm đọc và ghi cho 8-bit, 1
 {% highlight c %}
 //Đọc một lần.
 unsinged char inb(unsigned long port_address);
-unsinged char inw(unsigned long port_address);
-unsinged char inl(unsigned long port_address);
+unsinged short inw(unsigned long port_address);
+unsinged long inl(unsigned long port_address);
 //Đọc nhiều lần : Đọc count bytes từ I/O port và ghi vào addr.
 void insb(unsigned long port_address, void * addr, unsigned long count);
 void insw(unsigned long port_address, void * addr, unsigned long count);
@@ -51,14 +97,16 @@ void insl(unsigned long port_address, void * addr, unsigned long count);
 ### Các hàm Ghi I/O Register
 {% highlight c %}
 //Đọc một lần.
-unsinged char outb(unsigned long port_address);
-unsinged char outw(unsigned long port_address);
-unsinged char outl(unsigned long port_address);
+unsinged char outb(unsigned char value, unsigned long port_address);
+unsinged char outw(unsigned short value, unsigned long port_address);
+unsinged char outl(unsigned long value, unsigned long port_address);
 //Ghi nhiều lần : Ghi count bytes bắt đầu từ addr vào I/O port.
 void insb(unsigned long port_address, void * addr, unsigned long count);
 void insw(unsigned long port_address, void * addr, unsigned long count);
 void insl(unsigned long port_address, void * addr, unsigned long count);
 {% endhighlight %}
+
+Nếu muốn test các hàm đọc ghi và bạn đang sử dụng một con PC intel, thì bạn có thể thử dùng I/O port từ <i>0x378</i> đến <i>0x37a</i> của parallel port, nhưng đừng request_region mà cứ dùng thẳng các hàm <code>outb()</code> và <code>inb()</code>
 
 ## 4. Cấp phát, Mapping, và sử dụng I/O Memory.
 Mặc dù phổ biến trong các thiết bị intel x86, nhưng I/O port không phải là kỹ thuật chính được sử dụng để Processor kết nối với các thiết bị ngoại vi, mà kỹ thuật đó chính là I/O Memory. 
