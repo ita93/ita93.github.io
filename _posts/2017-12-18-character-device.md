@@ -389,7 +389,7 @@ if (IS_ERR(oni_device))
 Bằng đoạn code này, kernel sẽ tạo ra file /dev/oni_chrdev, và các user-app có thể giao tiếp với device thông qua file này.
 Đến đây chúng ta hoàn thành hàm init rồi hí hí.
 {% highlight c %}
-	printk(KERN_INFO "Initialized device driver");
+	pr_info( "Initialized device driver");
 	return 0;
 {% endhighlight %}
 
@@ -453,12 +453,12 @@ static ssize_t oni_read(struct file *filp, char __user *buffer, size_t count, lo
 	err_count = copy_to_user(buffer, msg, size_of_msg);
 	if( err_count == 0 )
 	{
-		printk(KERN_INFO "Oni Chrdev: Sent %lu chars to the user\n", size_of_msg);
+		pr_info( "Oni Chrdev: Sent %lu chars to the user\n", size_of_msg);
 		size_of_msg = 0;
 		return 0;
 	}else
 	{
-		printk(KERN_INFO "Oni Chrdev: Failed to send %d chars to the user\n", err_count);
+		pr_info( "Oni Chrdev: Failed to send %d chars to the user\n", err_count);
 		return -EFAULT;
 	}
 }
@@ -478,7 +478,7 @@ static ssize_t oni_write(struct file *filp, const char __user *buffer, size_t co
 	}
 
 	size_of_msg = strlen(msg);
-	printk(KERN_INFO "Oni Chrdev: receive %zu charaters for the user: %s\n",count,msg);
+	pr_info( "Oni Chrdev: receive %zu charaters for the user: %s\n",count,msg);
 	return count;
 }
 {% endhighlight %}
@@ -524,29 +524,34 @@ struct file_operations oni_fops=
 
 static ssize_t oni_read(struct file *filp, char __user *buffer, size_t count, loff_t *offset)
 {
-	int err_count = 0;
-	err_count = copy_to_user(buffer, msg, size_of_msg);
-	if( err_count == 0 )
+	if ((*offset + count) > BUFFER_SIZE)	
+		count = BUFFER_SIZE - *offset;
+
+	if (copy_to_user(buffer, msg, count))
 	{
-		printk(KERN_INFO "Oni Chrdev: Sent string %s to the user\n",msg);
-		size_of_msg = 0;
-		return 0;
-	}else
-	{
-		printk(KERN_INFO "Oni Chrdev: Failed to send %d chars to the user\n", err_count);
+		pr_info("Oni Chrdev: Failed to send %d chars to the user\n", err_count);
 		return -EFAULT;
 	}
+
+	*offset += count;
+	pr_info("Oni Chrdev: Number of bytes successfully read = %zu\n", count);
+	return count;
 }
 
 static ssize_t oni_write(struct file *filp, const char __user *buffer, size_t count, loff_t *offset)
 {
+	if ((*offset + count) > BUFFER_SIZE)
+		count = BUFFER_SIZE - *offset;
+
+	if (!count)
+		return -ENOMEM;
 	if(copy_from_user(msg, buffer, count))
 	{
-		return -EACCES;
+		return -EFAULT;
 	}
 
-	size_of_msg = strlen(msg);
-	printk(KERN_INFO "Oni Chrdev: receive %zu charaters for the user %s\n",count,msg);
+	*offset ++ count;
+	pr_info( "Oni Chrdev: receive %zu charaters for the user %s\n",count,msg);
 	return count;
 }
 
