@@ -64,8 +64,6 @@ file operation structure giúp kết nối các tác vụ của driver với cá
 Mỗi trường trong file operation structure phải trỏ đến một function được định nghĩa bởi driver, function này thực hiện một tác vụ cụ thể. Nếu một trường nào đó là NULL thì có nghĩa là tác vụ đấy không được hỗ trợ. Mỗi tác vụ này sẽ có các hàm system call tương ứng để có thể gọi đến từ user space.
  ```struct file_operations``` có rất nhiều trường khác nhau nhưng về cơ bản chỉ cần quan  tâm đến một số hàm và thuộc tính thường dùng bao sau: 
 
-<div>
-
 <p style="background-color: lightblue;"><code>struct module *owner;</code>
 	/*
 		Đây là trường đầu tiên của fops struct, nó không phải là một tác vụ mà là một con trỏ trỏ đến module sử hữu structure này. 
@@ -120,7 +118,6 @@ Mỗi trường trong file operation structure phải trỏ đến một functio
 </p>
 <br/>
 
-</div>
 ### 2.2. File Struct - filp
 Where is it? => linux/fs.h
 File struct đại diện cho một open file (file đang mở). (mọi open file trong hệ thống đều có một struct file tương ứng trong kernel space). Thời gian tồn tại của nó là từ lúc open() call đến lúc close() call, trong suốt thời gian đó, nó được truyển cho mọi function có thao tác trên file.
