@@ -56,17 +56,15 @@ dev_t có kích thước là 32-bit, với 12 bit dùng cho Major number và 20 
 Tương tự, nếu như chúng ta đã biết major và minor của một device, chúng ta có thể tìm ra device number của nó bằng Macro: ```MKDEV(int major, int minor)```
 
 ## 2. Các cấu trúc dữ liệu quan trọng.
-<p style="color: red; font-size:300%"><b>ĐOẠN NÀY VIẾT VÀO CHO DÀI BÀI THÔI, KHÔNG CÓ TÁC DỤNG GÌ ĐÂU, KHỎI ĐỌC :GACH:</b></p>
 Hầu hết các tác vụ cơ bản của driver gọi đến 3 kernel data structure quan trọng, đó là: file_operations, file và inode.
 ### 2.1. File Operations - fops
 (linux/fs.h)
 <span style="color: red">file_operations</span>
 file operation structure giúp kết nối các tác vụ của driver với các device number. Mỗi file đang mở (biểu diễn bởi file structure) được liên kết với một tập các function (f_op). Các function này sẽ thực hiện các tác vụ của driver. Nói theo ngôn ngữ OOP thì các file là các Object còn các funtion thực hiện trên file là các method của nó.
 Mỗi trường trong file operation structure phải trỏ đến một function được định nghĩa bởi driver, function này thực hiện một tác vụ cụ thể. Nếu một trường nào đó là NULL thì có nghĩa là tác vụ đấy không được hỗ trợ. Mỗi tác vụ này sẽ có các hàm system call tương ứng để có thể gọi đến từ user space.
-Sau đây là danh sách các trường của ```struct file_operations```
+ ```struct file_operations``` có rất nhiều trường khác nhau nhưng về cơ bản chỉ cần quan  tâm đến một số hàm và thuộc tính thường dùng bao sau: 
 
 <div>
-<p class="text-uppercase">FPI Warning: It's boring</p>
 
 <p style="background-color: lightblue;"><code>struct module *owner;</code>
 	/*
@@ -76,6 +74,22 @@ Sau đây là danh sách các trường của ```struct file_operations```
 	*/
 </p>
 <br/>
+
+<p style="background-color: lightblue;"><code>int (*open) (struct file*, struct file *);</code>
+	/*
+		- Đây là tác vụ được thực hiện đầu tiên của device file. 
+		- Có thể có hoặc không.
+		- Nếu không có thì return value luôn là true.
+	*/
+</p>
+<br/>
+<p style="background-color: lightblue;"><code>int (*release) (struct inode *, struct file *);</code>
+	/*
+		Có open thì phải có release thôi.
+	*/
+</p>
+<br/>
+
 <p style="background-color: lightblue;"><code>loff_t (*llseek) (struct file *, loff_t, int);</code>
 	/*
 		Được sử dụng để thay đổi vị trí đọc/ghi hiện tại ở trong file. (seek/fseek function in C)
@@ -92,36 +106,9 @@ Sau đây là danh sách các trường của ```struct file_operations```
 	*/
 </p>
 <br/>
-<p style="background-color: lightblue;"><code>ssize_t (*aio_read) (struct kiocb *, char __user *, size_t, loff_t *);</code>
-	/*
-		Đọc không đồng bộ - tác vụ đọc có thể không hoàn thành trước khi hàm return.
-		NULL pointer thì nó sẽ tự trỏ đến hàm read.
-	*/
-</p>
-<br/>
 <p style="background-color: lightblue;"><code>ssize_t (*write) (struct file*, const char __user *, size_t, loff_t *);</code>
 	/*
-		Hàm này tương tự hàm read.
-	*/
-</p>
-<br/>
-<p style="background-color: lightblue;"><code>ssize_t (*aio_write) (struct kiocb *, const char __user *, size_t, loff_t *);</code>
-	/*
-		Hàm này tương tự hàm aio_read
-		Cả hai hàm write đều sử dụng const char => tránh sửa đổi dữ liệu truyền vào.
-	*/
-</p>
-<br/>
-<p style="background-color: lightblue;"><code>int (*readdir) (struct file *, void *, filldir_t);</code>
-	/*
-		Để đọc các thư mục. tốt nhất là bỏ qua nó
-	*/
-</p>
-<br/>
-<p style="background-color: lightblue;"><code>unsigned int (*pool)(struct file *, struct poll_table_struct *);</code>
-	/*
-		Đây là backend của 3 system call: poll, epoll và select
-		--Tạm thời ignore, vì chưa tìm hiểu =))
+		Ngược lại với hàm read.
 	*/
 </p>
 <br/>
@@ -132,97 +119,6 @@ Sau đây là danh sách các trường của ```struct file_operations```
 	*/
 </p>
 <br/>
-<p style="background-color: lightblue;"><code>int (*mmap) (struct file*, struct vm_area_struct *);</code>
-	/*
-		mmap được sử dụng để mapping device memory tới không gian bộ nhớ của process.
-	*/
-</p>
-<br/>
-<p style="background-color: lightblue;"><code>int (*open) (struct file*, struct file *);</code>
-	/*
-		- Đây là tác vụ được thực hiện đầu tiên của device file.
-		- Có thể có hoặc không.
-		- Nếu không có thì return value luôn là true.
-	*/
-</p>
-<br/>
-<p style="background-color: lightblue;"><code>int (*flush) (struct file *);</code>
-	/*
-		- được gọi khi một process đóng file descriptor (chỉ là bản copy thôi), nó sẽ thực thi và đợi các tác vụ chưa giải quyết xong trên device.
-		- Hiếm khi được sử dụng.
-		- Nếu NULL thì kernel sẽ bỏ qua request từ user space.
-	*/
-</p>
-<br/>
-<p style="background-color: lightblue;"><code>int (*release) (struct inode *, struct file *);</code>
-	/*
-		Có open thì phải có release thôi.
-	*/
-</p>
-<br/>
-<p style="background-color: lightblue;"><code>int (*fsync) (struct file *, struct dentry *, int);</code>
-	/*
-		Flush any pending data.
-		NULL -> -EINVAL
-	*/
-</p>
-<br/>
-<p style="background-color: lightblue;"><code>int (*aio_fsync) (struct kiocb *, int);</code>
-	/*
-		fsync khÔng đồng bộ
-	*/
-</p>
-<br/>
-<p style="background-color: lightblue;"><code>int (*fasync) (int, struct file *, int);</code>
-	/*
-		- ?????????????????????????????
-	*/
-</p>
-<br/>
-<p style="background-color: lightblue;"><code>int (*lock) (struct file*, int, struct file_lock *);</code>
-	/*
-		- Được sử dụng để lock file, thường thì không được thực hiện bởi ldd.
-	*/
-</p>
-<br/>
-<p style="background-color: lightblue;"><code>ssize_t (*readv) (struct file*, const struct iovec*, unsigned long, loff_t *);</code></p><br/>
-<p style="background-color: lightblue;"><code>ssize_t (*write) (struct file*, const struct iovec*, unsigned long, loff_t *);</code>
-	/*
-		- pending
-	*/
-</p>
-<br/>
-<p style="background-color: lightblue;"><code>ssize_t (*sendfile) (struct file*, loff_t, size_t, read_actor_t, void *);</code>
-	/*
-		- Được sử dụng bởi sendfile system call.
-		- Di chuyển dữ liệu từ một file descriptor tới một file descriptor khác với khối lượng copy nhỏ nhất. (tức là chỉ có gắng gửi những thứ đã bị thay đổi?).
-	*/
-</p>
-<br/>
-<p style="background-color: lightblue;"><code>ssize_t (*sendpage) (struct file*, struct page *, int, size_t, loff_t *, int);</code>
-	/*
-		sendpage giống sendfile, nhưng chỉ send từng page chứ không phải là cả file.
-		Thông thường không mấy ai implement hàm này.
-	*/
-</p>
-<br/>
-<p style="background-color: lightblue;"><code>unsigned log (*get_unmmapped_area) (struct file *, unsigned long, unsigned long, unsigned long, unsigned long);</code>
-	/*
-		- pending
-	*/
-</p>
-<br/>
-<p style="background-color: lightblue;"><code>int (*check_floags) (int);</code>
-	/*
-		- CHo phép một module kiểm tra các cờ đã được truyền vào fcntl();
-	*/
-</p>
-<br/>
-<p style="background-color: lightblue;"><code>int (*dir_notify) (struct file*, unsigned long);</code>
-	/*
-		directory change notification.
-	*/
-</p>
 
 </div>
 ### 2.2. File Struct - filp
