@@ -159,9 +159,12 @@ File struct đại diện cho một open file (file đang mở). (mọi open fil
  	*/
 
 ### 2.2. inode struct
-
-- Kernel dùng inode để đại diện cho các file. Lưu ý rằng struct file là đại diện cho descriptor của các file đang mở (fd), do đó với mỗi file trong hệ thống, có thể có nhiều fd nhưng chỉ có duy nhát một inode.
-- Chứa các thông tin hữu ích về file:
+- Master file table entries
+- Các đối tượng inode biểu diễn tất các thông tin mà Kernel cần để thực hiện việc thay đổi một file hay thư mục. 
+- Đối với các File system có lưu các Inode on-disk thì kernel sẽ đơn giản là  đọc các thông tin này từ các đối tượng Inode được lưu trong ổ đĩa. Tuy nhiên đối với các File system không lưu các inode trên đĩa thì kernel sẽ phải trích xuất các thông tin này từ file.
+- Inode object được khởi tạo trong bộ nhớ chính mỗi khi file được truy cập.
+- Struct file là đại diện cho descriptor của các file đang mở (fd), do đó với mỗi file trong hệ thống, có thể có nhiều fd nhưng chỉ có duy nhát một inode.
+- Inode chứa một số thông tin hữu ích đối với một character device, tiêu biểu là: 
 <p><code>dev_t i_rdev;</code>
 	/*
 		Chứa device number;
@@ -316,17 +319,17 @@ Hiện tại chúng ta chưa cần đến hàm này, nên chỉ cần định ng
 
 ```ssize_t read(struct file *filp, char __user *buff, ssize_t count, loff_t *offp);```
 ```ssize_t write(struct file *filp, const char __user *buff, ssize_t count, loff_t *offp);```
-Hàm này sẽ gửi một buffer có kích thước count bytes tới app space bắt đầu tự vị trí offp của file.
+Hàm này sẽ gửi một buffer có kích thước count bytes tới user space bắt đầu tự vị trí offp của file.
 Do buff là user-space pointer nên nó không thể được truy vấn một cách trực tiếp từ kernel code, sau đây là một số hạn chế:
-- Phụ thuộc vào arch của hệ thống và configuration của kernel, user-space pointer có thể là không hợp lệ đối với kernel mode. (Do kernel memory là direct mapping, trong khi ở user-space không phải là direct mapping nên cùng một địa chỉ nhưng vị trí sẽ khác nhau).
-- User-mem được paged (paging) nên nó không tồn tại lâu dài trong RAM. Việc tham chiếu đến user-space mem một cách trực tiếp sẽ gây ra page fault (không phải lúc nào cũng xảy ra nhưng xác suất cao) kể cả nếu pointer trong kernel-space và user-space có cách mapping giống nhau.
-- Về vấn đề bảo mật, việc tham chiếu trực tiếp đến pointer của user-space cũng không tốt vì nó tạo ra risk cao. 
+- Phụ thuộc vào kiến trúc của hệ thống và các cài đặt cấu hình của kernel, user-space pointer có thể là không hợp lệ đối với kernel mode. (Do kernel memory là direct mapping, trong khi ở user-space không phải là direct mapping nên cùng một địa chỉ nhưng vị trí sẽ khác nhau).
+- User-mem được paged (paging) nên nó không tồn tại lâu dài trong RAM. Việc tham chiếu đến vùng nhớ user-space một cách trực tiếp sẽ gây ra page fault (không phải lúc nào cũng xảy ra nhưng xác suất cao) kể cả nếu pointer trong kernel-space và user-space có cách mapping giống nhau.
+- Về vấn đề bảo mật, việc tham chiếu trực tiếp đến pointer của user-space cũng không tốt vì nó tạo ra nguy cơ bảo mật cao. 
 
-Mặc dù có những hạn chế ở trên, nhưng rõ ràng là chúng ta vẫn cần truy cập đến user-space buffer để hoàn thành việc read(và cả write) của ldd. Kernel cung cấp cho ta các hàm để thực hiện điều này một cách an toàn (thank torvalds). Những hàm này được định nghĩa trong header <span style="color: red">linux/uaccess.h</span>. Những hàm này đã sử dụng ma thuật hắc ám của kẻ mà ai cũng biệt là ai để truyền dữ liệu giữa kernel và user space một cách an toàn và im lặng. Trong phần read(), write() chúng ta cần đến phép thuật sau:
+Mặc dù có những hạn chế ở trên, nhưng rõ ràng là chúng ta vẫn cần truy cập đến user-space buffer để người dùng có thể tương tác với device. Kernel cung cấp các hàm để thực hiện điều này một cách an toàn. Những hàm này được định nghĩa trong header <span style="color: red">linux/uaccess.h</span>. Những hàm này đã sử dụng ma thuật hắc ám của kẻ mà ai cũng biệt là ai để truyền dữ liệu giữa kernel và user space một cách an toàn và im lặng. Trong phần read(), write() chúng ta cần đến phép thuật sau:
 ```usigned long copy_to_user(void __user *to, const void *from, usinged long count);```
 ```usigned long copy_from_user(void __user *to, const void __user *from, usinged long count);```
-Lưu ý là do user-space sử dụng cơ chế paging/swapping nên tại thời điểm bất kỳ, có thể page cần dùng để copy/send data không nằm trong bộ nhớ, do đó cần có thời gian để transfer các page này vào mem, điều này đồng nghĩ với việc các hàm read/write phải sleepable ở đây, nên các hàm này sẽ thực hiện một cách concurrently với các hàm khác của driver. <br/>
-Hai hàm này không phải là atomic, tức là nó sẽ kiểm tra xem user-space pointer có hợp lệ hay không. Nếu không, việc copy sẽ không được thực hiện, nếu có nó sẽ thực hiện, nhưng giả dụ trong lúc đang copy nó phát hiện ra một địa chỉ không hợp lệ, quá trình copy sẽ bị break và phần data chưa copy sẽ không được xử lý, phần đã copy thì vẫn giữ nguyên. Giá trị trả về của các hàm này đều là lượng data đã copy (bytes). [Atomic nghĩ là chỉ có 2 trường hợp: chạy hết thành công, trường hợp 2 là chạy thất bại ở một bước nào đấy thì toàn bộ sẽ bị roll back, giống trong SQL].<br/>
+Lưu ý là do user-space sử dụng cơ chế paging/swapping nên tại thời điểm bất kỳ, có thể page cần dùng để copy/send data không nằm trong bộ nhớ, do đó cần có thời gian để transfer các page này vào mem, điều này đồng nghĩa với việc các hàm read/write phải sleepable, nên các hàm này sẽ thực hiện một cách đồng thời với các hàm khác của driver. <br/>
+Hai hàm này không phải là atomic, tức là có thể chỉ một phần khối lượng công việc được hoàn thành. Cụ thể hơn, việc copy sẽ không được thực hiện nếu như user-space pointer không hợp lệ, trường hợp ngược lại, việc copy sẽ được thực hiện, nhưng giả dụ trong lúc đang copy nó phát hiện ra một địa chỉ không hợp lệ, quá trình copy sẽ bị break và phần data chưa copy sẽ không được xử lý, phần đã copy thì vẫn giữ nguyên. Giá trị trả về của các hàm này đều là lượng data đã copy (bytes). [Atomic nghĩ là chỉ có 2 trường hợp: chạy hết thành công, trường hợp 2 là chạy thất bại ở một bước nào đấy thì toàn bộ sẽ bị roll back, giống trong SQL].<br/>
 
 - Cần update *offp sau khi thực hiện read/write để đảm bảo rằng vị trí hiện tại là đúng.
 - Nếu thao tác đọc/ghi không thành công thì giá trị trả về là 1 số ÂM.
