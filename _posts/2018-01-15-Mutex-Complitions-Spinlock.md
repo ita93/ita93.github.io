@@ -32,16 +32,16 @@ Khi mutex đã được khởi tạo thì chúng ta có thể lock hay unlock n�
    - <code>mutex_unlock</code> Hàm này được sử dụng để giải phóng một mutex mà nó đã khóa trước đó (cùng 1 thread - task). Ai thắt nút thì người đó phải mở nút. Lưu ý rằng khi một process đang sở hữu một mutex, thì process đó chỉ có thể kết thúc nếu nó đã unlock cho mutex nó đang nắm giữ. 
    - <code>mutex_is_locked</code> kiểm tra xem mutex có đang bị lock không (có thể dùng chúng với mutex_trylock).
 
-Tại một thời điểm thì có một và chỉ một task có thể nắm giữ mutex, hơn nữa chỉ có task đang nắm giữ Mutex mới có thể thực hiện các thay đổi trạng thái của Mutex. Quyền sở hữu mutex không có tính đệ quy, tức là khi bạn không thể gọi đến hàm <code>lock()</code> của một mutex mà ta đã gọi hàm <code>lock()<code> thành công trước đó.
+Tại một thời điểm thì có một và chỉ một task có thể nắm giữ mutex, hơn nữa chỉ có task đang nắm giữ Mutex mới có thể thực hiện các thay đổi trạng thái của Mutex. Quyền sở hữu mutex không có tính đệ quy, tức là khi bạn không thể gọi đến hàm <code>lock()</code> của một mutex mà ta đã gọi hàm <code>lock()</code> thành công trước đó.
 ## 2. Completion Variable
-Một trong các pattern phổ biến trong kernel programming là khởi tạo một số activity bên ngoài luồng thực thi hiện tại, sau đó đợi đến khi activity đó hoàn thành(async), Activity này có thể là tạo một kernel thread hoặc một user-space process mới, một request đến một process đã tồn tại, hoặc một sốhardware-based action.
+Một trong các pattern phổ biến trong kernel programming là khởi tạo một số activity bên ngoài luồng thực thi hiện tại, sau đó đợi đến khi activity đó hoàn thành(async), Activity này có thể là tạo một kernel thread hoặc một user-space process mới, một request đến một process đã tồn tại, hoặc một số hardware-based action.
 Ví dụ:
-<code>
+{% highlight c %}
 	struct semaphore sem;<br/>
 	init_MUTEX_LOCKED(&sem);<br/>
 	start_external_task(&sem);<br/>
 	down(&sem);
-</code>
+{% endhighlight %}
 (Code trên sẽ làm giảm performance, hơn nữa vì semaphore đã bị loại bỏ trong các bản kernel > 3.x nên code này không compile được đâu :gach: )
 external_task sau đó có thể gọi up(&sem) khi công việc của nó hoàn thành. 
 Completion interface được dùng trong trường hợp này, nó cho phép một thread có thể thông báo với một thread khác rằng nó đã hoàn thành công việc. Do kỹ thuật này khá thông dụng, nên Linux kernel cung cấp <b>Condition variable</b> để thực hiện các thao tác này.
@@ -58,7 +58,7 @@ function này tạo ra một uninterruptible wait(tức là chúng ta không th�
 Thread đang được đợi, sẽ thông báo cho calling thead rằng nó đã hoàn thành công việc bằng cách gọi một trong hai hàm sau:<br/>
 <code>complete(struct completion *c);</code> Chỉ wake up một thread duy nhất<br/>
 <code>compelete_all(struct completion *c);</code> Weke up tất cả các thread đang đợi<br/>
-Một completion thường là one-shot device, tức là nó chỉ được dùng 1 lần sau đó sẽ bị discard. Tuy nhiên, việc sử dụng lại một completion là khả dĩ. Nếu complete_all không được sử dụng, thì struct completion có thể được sử dụng lại một cách dễ dàng. Nếu complete_all đã dược gọi, thì completionstruct cầ được tái tạo trước khi sử dụng với macro: <br/>
+Một completion thường là one-shot device, tức là nó chỉ được dùng 1 lần sau đó sẽ bị discard. Tuy nhiên, việc sử dụng lại một completion là khả dĩ. Nếu complete_all không được sử dụng, thì struct completion có thể được sử dụng lại một cách dễ dàng. Nếu complete_all đã dược gọi, thì completion variable cần được tái tạo trước khi sử dụng với macro: <br/>
 <code>INIT_COMPLETION(struct completion c);</code><br/>
 Appendex: <code>void complete_and_exit(struct completion *c, long retval);</code>
 
