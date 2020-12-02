@@ -5,11 +5,7 @@ category: Linux device driver
 
 comments: true
 ---
-<<<<<<< HEAD:_posts/2018-01-25-Blocking-IO.md
 Blocking IO dịch một cách đơn giản nghĩa là thực thi đơn luồng, tức là tác vụ chỉ có thể được thực thi sau khi một hay một số tác vụ nhất định nào đấy đã được hoàn thành. Ví dụ như chương trình Word chỉ có thể đọc một file văn bản <u><b>sau khi</b></u> nó đã mở được file đó.
-=======
-Blocking IO dịch một cách đơn giản nghĩa là thực thi đơn luồng, tức là tác vụ chỉ có thể được thực thi sau khi một hay một số tác vụ nhất định nào đấy đã được hoàn thành. Ví dụ như chương trình Word chỉ có thể đọc một file văn bản <b>sau khi</b> nó đã được file đó.
->>>>>>> 48b074ed2768c8b05cdbdd40ceb971b176257b08:_posts/2018-01-25-Sleeping and Wait queue.md
 
 Trong character driver, có implement hai hàm: read() và write(). Thử tưởng tượng, nếu như driver không thể thỏa mãn được yêu cầu một cách tức thời, chẳng hạn như  driver sẽ làm gì nếu như hàm <code>read()</code> được gọi khi dữ liệu chưa sẵn có, nhưng có thể nó sẽ có trong tương lai gần. Hoặc một process cố gắng thực hiện lệnh <code>write()</code> nhưng device chưa sẵn sàng nhận dữ liệu bởi vì buffer đang full. Trong trường hợp này, driver nên block process (user-space) lại, đưa nó vào tình trạng sleep cho đến khi các yêu cầu đó có thể được thực thi.<br/>
 
