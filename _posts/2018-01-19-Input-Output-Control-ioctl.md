@@ -16,25 +16,24 @@ Trong C, <code>...</code> là va_arg (một lượng tham số truyền vào kh�
 
 -Prototype của ioctl trong ldd:<br/>
 <code>int (*ioctl)(struct inode *inode, struct file *filp, unsigned int cmd, unsigned long arg);</code><br/>
-<i>[kernel]inode+filp = [user-space]fd</i></br>
+<code>[kernel]inode+filp = [user-space]fd</code></br>
 (need a image here)<br/>
--Nếu ioctl có additional arg thì trong kernel-space, nó luôn được truyền như là một biến unsigned long, bất kể biến truyền vào ở user-space là integer hay pointer. Nếu user-space program không pass optional arg thì biến <code>arg</code> trong ldd sẽ là <b>undifined</b><br/>
-<i>type checking for ioctl is disabled</i><br/>
-- Đối với từng <code>cmd</code> thì có một tác vụ tương ứng được thực hiện<br/>
-- Thông thường ioctl sẽ sử dụng <code>switch(cmd)</code> để thực hiện nhiệm vụ của nó.<br/>
+-Nếu lời gọi ioctl từ tầng ứng dụng muốn truyền thêm tham số thì trong kernel-space, nó luôn được truyền như là một biến unsigned long, bất kể biến truyền vào ở user-space là integer hay pointer. Nếu user-space program không truyền thêm tham số tùy chọn thì biến <code>arg</code> trong tầng nhân sẽ là <b>undifined</b><br/>
+
+- Đối với từng <code>command</code> thì có một tác vụ tương ứng được thực hiện<br/>
+- Thông thường ioctl sẽ sử dụng <code>switch(command)</code> để thực hiện nhiệm vụ của nó.<br/>
 <br/><br/>
 
 ## 1. Command number (cmd arg) và cách chọn cmd arg.
--Không nên sử dụng cách chọn một set các số bắt đầu từ 0(hoặc 1) để dụng cho cmd arg. Lý do là các <code>ioctl</code> của các driver khác nhau nên sử dụng các cmd arg khác nhau, hay nói cách khác cmd arg là unique value trong toàn hệ thống.<br/>
--Tại sao lại dùng unique value cho toàn bộ cmd arg? Vì khi đấy nếu user-space prog truyền cmd của driver A và ioctl của driver B thì prog sẽ nhận được giá trị trả về là EINVAL thay vì một thao tác không đoán trước được và không đúng mong muốn của người dùng.<br/><br/><br/>
-Vậy chọn giá trị nào cho <code>cmd</code>? <br/>
+-Không nên sử dụng cách chọn một tập các số bắt đầu từ 0(hoặc 1) để dùng cho cmd arg. Lý do là các <code>ioctl</code> của các driver khác nhau nên sử dụng các cmd arg khác nhau, hay nói cách khác, mỗi cmd arg nên là một giá trị độc lập duy nhất trong toàn hệ thống. Vì lục này nếu user-space prog truyền cmd của driver A và ioctl của driver B thì prog sẽ nhận được giá trị trả về là EINVAL thay vì một thao tác không đoán trước được và không đúng mong muốn của người dùng.<br/><br/><br/>
+Vậy chọn giá trị nào cho <code>cmd arg</code>? <br/>
 Đầu tiên cần kiểm tra <code>include/asm/ioctl.h</code> và <i>Documentation/ioctl-number.txt</i> để xem những giá trị đã được xí trước để tránh dùng những giá trị này.<br/>
 
 Command numbers (<code>cmd</code>) được định nghĩa bằng cách sử dụng 4 bitfields: type, number, direction, type. Mỗi bitfield có ý nghĩa như sau:<br/>
 <code>type</code>: Magic number, ứng với một device driver có một magic number duy nhất. Bitfield này có độ rộng là 8 bits(_IOC_TYPEBITS).<br/>
 <code>number</code>: Đây là số thứ tự. Có kích thước 8 bít (_IOC_NRBITS).<br/>
-<code>direction</code>: Chiều transfer của dữ liệu (đọc/ghi/nothing): _IOC_NON(không truyền data), _IOC_WRITE, _IOC_READ, nếu vừa đọc vừa ghi data thì có thể dùng _IOC_WRITE|_IOC_READ. view point ở đây là từ user-space application. tức là ĐỌC từ device, GHI vào device.<br/>
-<code>size</code> Kích thước của data. Bitfield này có độ rộng phụ thuộc và arch, nhưng thường là 13/14 bits. Kích thước cho từng arch cụ thể có thể được tìm thấy bằng macro _IOC_SIZEBITS. Thật ra field này là không bắt buộc, nhưng việc sử dụng nó giúp cho driver có thể phát hiện errors. Vì chỉ có 13/14bits thì nó sẽ không đủ để ghi kích thước data khi data lớn.<br/><br/><br/>
+<code>direction</code>: Chiều truyền tải của dữ liệu (đọc/ghi/nothing): _IOC_NON(không truyền dữ liệu), _IOC_WRITE, _IOC_READ, nếu vừa đọc vừa ghi dữ liệu thì có thể dùng _IOC_WRITE|_IOC_READ. view point ở đây là từ user-space application. tức là ĐỌC từ device, GHI vào device.<br/>
+<code>size</code> Kích thước của data. Bitfield này có độ rộng phụ thuộc và kiến trúc của hệ thống, nhưng thường là 13/14 bits. Kích thước cho từng kiến trúc (arch) cụ thể có thể được tìm thấy bằng macro _IOC_SIZEBITS, hầu hết giá trị này là 14, chỉ có một số ngoại lệ như MIPS, Sparc hay PowerPC là 13. Thật ra field này là không bắt buộc, nhưng việc sử dụng nó giúp cho driver có thể phát hiện errors. Vì chỉ có 13/14bits thì nó sẽ không đủ để ghi kích thước dữ liệu khi dữ liệu quá lớn.<br/><br/><br/>
 
 ## 2. Setup command number với asm/ioctl.h
 header này cung cấp các macro giúp chúng ta dễ dàng hơn trong việc setup các command number:
@@ -49,11 +48,12 @@ Ví dụ về ioctl command number definations:<br/>
 <code>#define ONI_IOCREAD _IOR(ONI_MAGIC_NR,FIRST_SEQ);</code><br/><br/>
 
 ## 3. Giá trị trả về của ioctl
-- Nếu command number truyền vào không đúng thì giá trị trả về nên là -EINVAL/-ENOTTY<br/>
+- Các ioctl command có thể trả về các error code có giá trị âm như đã được định nghĩa trong file <code>errno.h</code>. Trong trường hợp yêu cầu của user space được thực hiện thành công thì giá trị trả về nên là 0. <br/>
+- Trong trường hợp driver không định nghĩa giá trị cho command number được truyền vào, thì giá trị trả về có thể là <i>-ENOTTY</i> hoặc <i>-ENOIOCTLCMD</i>. 
 
 ## 4. Sử dụng argument trong ioctl
 -Argument ở đây có thể là integer number hoặc pointer<br/>
--Nếu argument truyền vào là một pointer thì cần đảm bảo rằng user space address là hợp lệ, nếu không nó có thể gây ra kernel ops... Driver cần kiểm tra tất cả các pointer được truyền vào <br/>
+-Nếu argument truyền vào là một pointer thì cần đảm bảo rằng địa chỉ tầng ứng dụng là hợp lệ, nếu không nó có thể gây ra kernel ops... Driver cần kiểm tra tất cả các pointer được truyền vào <br/>
 
 ## 5. Ví dụ
 "Không gì tốt hơn thực hành" Một cao nhân dấu tên, dấu cả chân đã nói thế. Sau đây sẽ là một ví dụ về ioctl.<br/>
@@ -77,8 +77,8 @@ type def struct{
 #define QUERY_SET_VARIABLES	_IOW('o',3,birthday *)
 {% endhighlight %}
 Ở file header, mình đã định nghĩa ra một kiểu mới tên là birthday, là một struct gồm 3 interger number. Đây cũng là argument truyền vào cho các lời gọi ioctl ở phần sau. Sau đấy là 3 <b>command number</b> được sử dụng bởi Oni Ioctl. <br/>
-Tất cả các cmd number đều sử dụng chung một magic number là 'o' (nó sẽ tự đổi ra int), trong lý thuyết thì các cmd number của cùng 1 device không bắt buộc phải có magic number giống nhau, nhưng trên thực tế, việc sử dụng 1 magic number duy nhất sẽ giúp code dễ quản lý, đẹp mắt, ảo lòi hơn. <br/>
-Các cmd number có sequence number lần lượt là 1, 2, 3. Ở cmd number đầu tiên, chúng ta khai báo rằng nó sẽ đọc dữ liệu từ device và sử dụng tham số có kiểu birthday. Ở cmd number thứ 2, chúng ta k dùng tham số. (mấy cái này tượng trưng thôi, có dùng IO hết cũng chả chết, nhưng mà code cleaning is good).<br/>
+Tất cả các cmd number đều sử dụng chung một magic number là 'o' (nó sẽ tự đổi ra int), theo lý thuyết thì các cmd number của cùng 1 device không bắt buộc phải có magic number giống nhau, nhưng trên thực tế, việc sử dụng 1 magic number duy nhất sẽ giúp code dễ quản lý, đẹp mắt, ảo lòi hơn. <br/>
+Các cmd number có sequence number lần lượt là 1, 2, 3. Ở cmd number đầu tiên, chúng ta khai báo rằng nó sẽ đọc dữ liệu từ device và sử dụng tham số có kiểu birthday. Ở cmd number thứ 2, chúng ta k dùng tham số. (mấy cái này tượng trưng thôi, có dùng _IO hết cũng chả chết, nhưng mà code cleaning is good).<br/>
 File header này sẽ được include ở cả ldd và user-space app. <br/><br/><br/>
 Tiếp theo sẽ là file source cho ldd, mình tạo 1 file mới tên là <code>oni_ioctl.c</code><br/>
 Đầu tiên phải include những header cần thiết vào
