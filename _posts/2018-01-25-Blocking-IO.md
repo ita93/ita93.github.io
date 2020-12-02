@@ -5,18 +5,19 @@ category: Linux device driver
 
 comments: true
 ---
+Blocking IO dịch một cách đơn giản nghĩa là thực thi đơn luồng, tức là tác vụ chỉ có thể được thực thi sau khi một hay một số tác vụ nhất định nào đấy đã được hoàn thành. Ví dụ như chương trình Word chỉ có thể đọc một file văn bản <u><b>sau khi</b></u> nó đã mở được file đó.
 
-Trong character driver, có implement hai hàm: read() và write(). Thử tưởng tượng, nếu như driver không thể thỏa mãn được request một cách tức thời, thì nó sẽ phản ứng như thế nào? Điều này tức là driver sẽ làm gì nếu như hàm <code>read()</code> được gọi khi dữ liệu chưa sẵn có, nhưng có thể nó sẽ có trong tương lai gần. Hoặc một process cố gắng thực hiện lệnh <code>write()</code> nhưng device chưa sẵn sàng nhận dữ liệu bởi vì buffer đang full. Trong trường hợp này, driver nên block process (user-space) lại, đưa nó vào tình trạng sleep cho đến khi các request có thể được thực thi.<br/>
+Trong character driver, có implement hai hàm: read() và write(). Thử tưởng tượng, nếu như driver không thể thỏa mãn được yêu cầu một cách tức thời, chẳng hạn như  driver sẽ làm gì nếu như hàm <code>read()</code> được gọi khi dữ liệu chưa sẵn có, nhưng có thể nó sẽ có trong tương lai gần. Hoặc một process cố gắng thực hiện lệnh <code>write()</code> nhưng device chưa sẵn sàng nhận dữ liệu bởi vì buffer đang full. Trong trường hợp này, driver nên block process (user-space) lại, đưa nó vào tình trạng sleep cho đến khi các yêu cầu đó có thể được thực thi.<br/>
 
 ## 1 Sleeping trong kernel
--Khi một process ở trạng thái sleep, nó sẽ bị remove khỏi scheduler's run queue cho đến khi status của nó được thay đổi bởi một sự kiện nào đó. <br/>
--Một process ở sleep status sẽ không được lập lịch trong CPU.<br/><br/>
-Để một đoạn code có thể được đưa vào trạng thái sleep thì nó cần thỏa mãn các điều kiện sau đây:<br/>
--Rule 1: Không sleep khi đang trong một atomic context. Tức là driver không được sleep khi đang giữ spinlock, seqlock hoặc RCU lock.<br/>
--Rule 2: Không thể sleep khi đang có các disabled interrupt.<br/>
--Rule 3: Sleep trong semaphore là được phpes, nhưng cần phải cẩn thận. Nếu một đoạn code sleep trong khi nó đang giữ semaphore thì thread đang đợi semaphore đó cũng sẽ bị đưa vào trạng thái sleep, do đó cần đảm bảo rằng bạn không block luôn kthread sẽ đánh thức sleeping process.<br/>
--Rule 4: Khi một sleeping kthread được wake up thì nó không thể biết là nó đã bị loại ra khỏi CPU được bao lâu, và trong thời gian đó, đã xảy ra những thay đổi nào. Do đó, chúng ta không thể tạo ra một giả thuyết nào về trạng thái của hệ thống sau khi wake up kthread, mà phải kiểm tra xem những điều kiện cần thiết có đảm bảo không.<br/>
--Rule 5: Chỉ sleep khi chắc chắn rằng có một ai đó sẽ đánh thức bạn trong một thời điểm nào đó. Ngược lại hệ thống sẽ bị hang. Để làm được điều này thì có một yêu cầu nữa là awaker cần phải tìm được bạn để đánh thức.<br/><br/>
+-Khi một process ở trạng thái <i>sleep</i>, nó sẽ bị loại bỏ khỏi Run queue của bộ lập lịch cho đến khi trạng thái của nó được thay đổi bởi một sự kiện nào đó. <br/>
+-Một process đang ở trạng thái <i>sleep</i> sẽ không được lập lịch trong CPU.<br/><br/>
+Để một đoạn code có thể được đưa vào trạng thái <i>sleep</i> thì nó cần thỏa mãn các điều kiện sau đây:<br/>
+-Điều kiện 1: Không được đưa vào trạng thái <i>sleep</i> khi đang trong một atomic context. Tức là driver không được <i>sleep</i> khi đang giữ spinlock, seqlock hoặc RCU lock.<br/>
+-Điều kiện 2: Không thể <i>sleep</i> khi đang có các disabled interrupt.<br/>
+-Điều kiện 3: Sleep trong semaphore là được phép, nhưng cần phải cẩn thận. Nếu một đoạn code sleep trong khi nó đang giữ semaphore thì thread đang đợi semaphore đó cũng sẽ bị đưa vào trạng thái sleep, do đó cần đảm bảo rằng bạn không block luôn kthread sẽ đánh thức sleeping process. (Phần này copy trong sách ldd3, tuy nhiên semaphore đã bị xóa khỏi kernel từ lâu rồi nên không cần quan tâm).<br/>
+-Điều kiện 4: Khi một sleeping kthread được đánh thức thì nó không thể biết là nó đã bị loại ra khỏi CPU được bao lâu, và trong thời gian đó, đã xảy ra những thay đổi nào. Do đó, chúng ta không thể tạo ra một giả thuyết nào về trạng thái của hệ thống sau khi đánh thức kthread, mà phải kiểm tra xem những điều kiện cần thiết có đảm bảo không.<br/>
+-Điều kiện 5: Chỉ sleep khi chắc chắn rằng có một ai đó sẽ đánh thức bạn trong một thời điểm nào đó. Ngược lại hệ thống sẽ bị hang. Để làm được điều này thì có một yêu cầu nữa là awaker cần phải tìm được bạn để đánh thức.<br/><br/>
 
 ## 2 Wait Queue là gì?
 Wait queues được sử dụng khi một task có trạng thái RUNNING trong kernel phải đợi một điều kiện nào đó xảy ra để có thể tiếp tục thực thi. Ví dụ như như hàm read() write() ở phần intro đã nói.
@@ -24,7 +25,7 @@ Wait queues được sử dụng khi một task có trạng thái RUNNING trong 
 Đối với những task này, việc đưa nó vào trạng thái sleep (không làm gì cả) cho đến khi điều kiện (flag) nó chờ chuyển thành true hoặc tài nguyên nó cần có thể sử dụng được. Lúc này ta cần phải được đưa nó về trạng thái thực thi, bằng cách đánh thức nó. Trong kernel, các thao tác này thực hiện bằng <b><span style="color:red">WAIT QUEUE</span></b>
 
 Các task đang có trạng thái là TASK_INTERRUPTIBLE, TASK_UNINTERRUPTIBLE hoặc TASK_KILLALBLE là các task đang nằm trong tình trạng sleep. Các task đang sleep được chia vào 2 loại: interruptible và uninterruptible. Các task uninterruptible là các task không thể đánh thức bằng các signal(tức là bạn không CTRL+C từ userspace app được), những cái này nên hạn chế sử dụng, vì nó có thể sẽ làm treo hệ thống, và bạn không cách nào tắt nó đi được. Một hệ quả thường thấy nếu như bạn dùng uninterruptible không đúng cách là việc máy của bạn không thể reboot được.
-
+b
 Trong một hệ thống có thể có nhiều wait queue, chúng được kết nối với nhau trong một linked list. Hơn nữa, mỗi wait queue có thể có một hoặc nhiều task.
 
 Linux kernel dùng một structure tên là <code>wait_queue_head_t</code> để biểu diễn một wait_queue. một queue head có thể được khởi tạo bằng các cách sau:<br/>
@@ -61,6 +62,7 @@ void wake_up_interruptible_sync_nr(wait_queue_head_t *wq, int nr);
 {% endhighlight %}
 
 Ở đây <code>nr</code> là số lượng task sẽ được đánh thức.(thường là 1).
+Thông thường thì các hàm wait sẽ kiểm tra điều kiện truyền vào (condition flag) ngay tại thời điểm gọi hàm, nếu điều kiện này không thỏa mãn thì nó mới tạo ra một mục mới trong WAIT QUEUE, ngược lại nó sẽ return ngay lập tức, và đoạn code sau lời gọi hàm wait sẽ được thi ngay mà không phải đợi chờ gì cả. WAIT QUEUE về cơ bản chỉ là một cái danh sách liên kết chứa các con trỏ <code>struct wait_queue_entry*</code>
 
 ## 4.Blocking and Nonblocking Operations
 Phần này sẽ nói về việc xác định xem khi nào chúng ta sẽ đưa process vào trạng thái sleep?<br/>
