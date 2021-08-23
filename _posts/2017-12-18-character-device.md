@@ -381,7 +381,7 @@ static ssize_t oni_write(struct file *filp, const char __user *buffer, size_t co
 
 <p>
 <code>
-	Kernel cung cấp cá hàm có cách dùng đơn giản hơn cho việc đọc/ghi dữ liệu từ/tới buffer đó là simple_read_from_buffer() và simple_write_to_buffer(), trong trường hợp chỉ cần đọc/ghi dữ liệu đơn thuần mà không thực hiện các thao tác xử lý phức tạp gì (như ví dụ trong bài này), thì ưu tiên dùng hai hàm này.
+	Kernel cung cấp các hàm có cách dùng đơn giản hơn cho việc đọc/ghi dữ liệu từ/tới buffer đó là simple_read_from_buffer() và simple_write_to_buffer(), trong trường hợp chỉ cần đọc/ghi dữ liệu đơn thuần mà không thực hiện các thao tác xử lý phức tạp gì (như ví dụ trong bài này), thì ưu tiên dùng hai hàm này.
 </code>
 </p>
 
