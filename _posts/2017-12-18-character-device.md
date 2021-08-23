@@ -5,7 +5,7 @@ category: Linux device driver
 
 comments: true
 ---
-# Character Device Driver(DRAFT Ver).
+# Character Device Driver.
 
 Character Device (chardev) là các device được truy cập như một luồng nhị phân (byte stream - tương tự như các file trong máy tính), và character device
 driver có nhiệm vụ thực hiện những thao tác đọc ghi này. Đối với một character device driver, ít nhất 4 system call: open, close read và write cần được implement để chardev có thể hoạt động một cách bình thường. 
@@ -378,6 +378,12 @@ static ssize_t oni_write(struct file *filp, const char __user *buffer, size_t co
 	return count;
 }
 {% endhighlight %}
+
+<p>
+<code>
+	Kernel cung cấp cá hàm có cách dùng đơn giản hơn cho việc đọc/ghi dữ liệu từ/tới buffer đó là simple_read_from_buffer() và simple_write_to_buffer(), trong trường hợp chỉ cần đọc/ghi dữ liệu đơn thuần mà không thực hiện các thao tác xử lý phức tạp gì (như ví dụ trong bài này), thì ưu tiên dùng hai hàm này.
+</code>
+</p>
 
 File source hoàn chỉnh sẽ như sau:
 
