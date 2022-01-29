@@ -45,7 +45,7 @@ links:
   - title: About
     url: /about
 
-staticman_url: https://ita93-cmt.herokuapp.com/v3/entry/github/ita93/staticman/master/comments
+staticman_url: https://ita93-cmt.herokuapp.com/v2/entry/ita93/ita93.github.io/master/comments
 # http://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 timezone:    Asia/Singapore
 future:      true
