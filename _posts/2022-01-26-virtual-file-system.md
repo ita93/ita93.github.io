@@ -150,7 +150,56 @@ static struct file *__alloc_file(int flags, const struct cred *cred)
 	/* Cut */
 {% endhighlight %}
 
-File object sẽ được kết nối tới các inode (disk file descriptor) thông qua dentry object. 
+Bây giờ mình sẽ viết một kernel module mà khi insert vào nó sẽ in một chuỗi ký tự ra terminal (stdout không phải dmesg) bằng cách sử dụng file descriptor được lưu trữ trong ```file_struct```. Việc này có thể được thực hiện là do Linux kernel sử dụng terminal như một file thông thường, nó cũng hỗ trợ mở, đọc ghi qua file descriptor. Mình sẽ chỉ viết hàm init của module, và sẽ chú thích trong code:
+
+{% highlight C linenos %}
+static int nr_pid = 0; /* Tham số truyền vào của kernel module này là pid của một process */
+module_param(nr_pid, int, 0644);
+static int __init vfs_layer_init(void)
+{
+        struct files_struct *files; 
+        struct file *stdout_fd = NULL;
+        struct pid *bpid;
+        struct task_struct *btask_struct;
+        loff_t offset = 0;
+        char *hello_user = "Hello userspace\n"; /* Đây là chuỗi sẽ được in ra màn hình */
+
+        bpid = find_get_pid(nr_pid); /* Dòng này sẽ lấy pid_t object tương ứng với pid truyền vào */
+        if (!bpid)
+                return -EINVAL;
+        rcu_read_lock();
+        btask_struct = pid_task(bpid, PIDTYPE_PID); /* Lấy task_struct object của process chúng ta muốn thao tác */
+        rcu_read_unlock();
+
+        files = btask_struct->files; // Lấy ra files_struct object của process
+
+		// Tiếp theo, chúng ta lấy ra file descriptor của stdout.
+		// Trong linux thì open fd của stdout có giá trị là 1, tức là files->fdt[1], 
+		// Tuy nhiên chúng ta nên sử dụng các hàm cung cấp bởi kernel để truy cập giá trị này thay vì truy cập trực tiếp
+        stdout_fd = files_lookup_fd_raw(files, 1); //1 is open fd of stdout
+
+        if (stdout_fd) {
+				//Sử dụng stdout_fd để ghi ra terminal
+				// Lưu ý rằng hàm __kernel_write() đã bao gồm cả code gọi tới hàm f_op->write
+				// Mình gọi hàm f_op->write ở đây chỉ để show ra rằng chúng ta có thể truy cập
+				// các hàm này thông qua task_struct của process.
+                if (stdout_fd->f_op->write)
+                        stdout_fd->f_op->write(stdout_fd,hello_user, strlen(hello_user), &offset);
+                else if (stdout_fd->f_op->write_iter)
+                        __kernel_write(stdout_fd, hello_user, strlen(hello_user), &offset);
+        }
+
+        return 0;
+}
+{% endhighlight %}
+
+Sử dụng kernel module này như sau:
+{% highlight bash linenos %}
+root@oni:~# insmod vfs_layer.ko nr_pid=$(echo $$)
+Hello userspace
+{% endhighlight %}
+
+File object sẽ được kết nối tới các inode (in-memory inode) thông qua dentry object,  phần tiếp theo mình sẽ viết về dentry và path lookup
 
 ### 3. Dentry và path lookup
 {% highlight C linenos %}
