@@ -355,5 +355,35 @@ struct inode {
 }
 {% endhighlight %}
 
+Trong đó ```i_op``` là con trỏ tới kiểu dữ liệu ```inode_operations```, kiểu dữ liệu này là một lớp trừu tượng chứa các con trỏ hàm dùng để tương tác với dữ liệu của inode, một số trường quan trọng của ```inode_operations```:
+{% highlight C linenos %}
+struct inode_operations {
+	/* Hàm mknod sẽ tạo ra một node mới ở mounted fs hiện tại */
+	int (*mknod) (struct user_namespace *, struct inode *,struct dentry *,
+		      umode_t,dev_t);
+	/* Hàm create được gọi khi user muốn tạo một file thông thường */
+	int (*create) (struct user_namespace *, struct inode *,struct dentry *,
+		       umode_t, bool);
+	/* Hàm myfs_mkdir có tác dụng tạo một thư mục mới */
+	int (*mkdir) (struct user_namespace *, struct inode *,struct dentry *,
+		      umode_t);
+	/* Hàm lookup có tác dụng tìm kiếm */
+	struct dentry * (*lookup) (struct inode *,struct dentry *, unsigned int);
+	/* Hàm link*/
+	int (*link) (struct dentry *,struct inode *,struct dentry *);
+}
+{% endhighlight %}
+
+Như đã nói ở trên, thì ```super_block``` chứa các thông tin về một mounted fs, các super block sẽ được tạo ra khi người dùng thực hiện mount một phân vùng mới thông qua hàm mount. VFS sử dụng các hàm fill_super để load các thông tin về fs vừa được mount vào trong ```super_block```. Ngoài ra VFS cũng hỗ trợ việc truyền vào các tùy chọn cho một mount fs, (ví dụ: ``` mount -t iso9660 -o ro /dev/cdrom /mnt```) hay việc giải phóng các tài nguyên bộ nhớ liên quan đến một mounted fs khi chúng ta umount. Tất cả các nhiệm vụ này được VFS thực hiện thông qua một cấu trúc dữ liệu tên là ```fs_context_operations```.
+{% highlight C linenos %}
+struct fs_context_operations {
+	void (*free)(struct fs_context *fc);
+	int (*dup)(struct fs_context *fc, struct fs_context *src_fc);
+	int (*parse_param)(struct fs_context *fc, struct fs_parameter *param);
+	int (*parse_monolithic)(struct fs_context *fc, void *data);
+	int (*get_tree)(struct fs_context *fc);
+	int (*reconfigure)(struct fs_context *fc);
+};
+{% endhighlight %}
 <b>VFS schema</b><br><br>
 ![Linux management structures](/images/vfs/vfs.png)
