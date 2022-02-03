@@ -2,7 +2,7 @@
 {% assign comments = site.data.comments[page.slug] | where_exp: "item", "true" %} 
 {% assign sorted_comments = comments | sort: 'date' %} 
 {% for comment in sorted_comments %}
-<div class=".staticman-comments">
+<div class="staticman-comment">
   <h3>{{comment.name}}</h3>
   <time
     class=".comment-timestamp"
@@ -12,6 +12,6 @@
     {%- assign date_format = site.minima.date_format | default: "%b %-d, %Y" -%}
     {{ comment.date | date:"%H:%M - %b %-d, %Y, %Y" }}
   </time>
-  <p>{{comment.message | strip_html | markdownify }}</p>
+  <p id="comment-content-display">{{comment.message | strip_html | markdownify }}</p>
 </div>
 {% endfor %}

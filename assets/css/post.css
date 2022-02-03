@@ -724,3 +724,32 @@ fieldset {
 #staticman-comments {
   display: none; 
 }
+
+/*Display list */
+.staticman-comment {
+  border-bottom: 1px solid rgb(65, 62, 62);
+  box-shadow: 1px 2px #888888;
+}
+
+.staticman-comment::after {
+  content: "\a";
+    white-space: pre;
+}
+
+.staticman-comment #comment-content-display {
+  border-top: .5px solid rgb(53, 65, 46);
+}
+
+.staticman-comment h3 {
+  font-size:18px;
+  margin-bottom:8px;
+  margin-top:8px;
+  color: #2a36b1;
+  font-style: italic;
+  font-weight: bold;
+}
+
+.staticman-comment time 
+{
+  color: #e51843;
+}
