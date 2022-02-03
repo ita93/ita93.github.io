@@ -2,10 +2,10 @@
 {% assign comments = site.data.comments[page.slug] | where_exp: "item", "true" %} 
 {% assign sorted_comments = comments | sort: 'date' %} 
 {% for comment in sorted_comments %}
-<div class="comment">
+<div class=".staticman-comments">
   <h3>{{comment.name}}</h3>
   <time
-    class="post-meta dt-published"
+    class=".comment-timestamp"
     datetime="{{ page.date | date_to_xmlschema }}"
     itemprop="datePublished"
   >
