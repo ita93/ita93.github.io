@@ -375,15 +375,108 @@ struct inode_operations {
 {% endhighlight %}
 
 Như đã nói ở trên, thì ```super_block``` chứa các thông tin về một mounted fs, các super block sẽ được tạo ra khi người dùng thực hiện mount một phân vùng mới thông qua hàm mount. VFS sử dụng các hàm fill_super để load các thông tin về fs vừa được mount vào trong ```super_block```. Ngoài ra VFS cũng hỗ trợ việc truyền vào các tùy chọn cho một mount fs, (ví dụ: ``` mount -t iso9660 -o ro /dev/cdrom /mnt```) hay việc giải phóng các tài nguyên bộ nhớ liên quan đến một mounted fs khi chúng ta umount. Tất cả các nhiệm vụ này được VFS thực hiện thông qua một cấu trúc dữ liệu tên là ```fs_context_operations```.
+#### Subsection: [File system context](https://elixir.bootlin.com/linux/v5.16/source/Documentation/filesystems/mount_api.rst) (kernel 5.4)
+Trước đây, việc mount một fs mới được thực hiện thông qua con trỏ hàm ```mount()``` của cấu trúc dữ liệu ```struct file_system_type```, tuy nhiên kể từ phiên bản kernel <i>5.4</i>, linux kernel đã giới thiệu một cơ chế mới có tên là <i>file system context</i>, cơ chế này cung cấp cho VFS khả năng tham số hóa qua trình khởi tạo/tìm kiếm/tái cấu hình super block.
+Qúa trình tạo một mount point mới của VFS sẽ được thực hiện qua các bước sau:
+- Bước 1: Tạo ra một file system context. 
+- Bước 2: Phân tích các tham số đầu vào và gắn nó vào fs context. 
+- Bước 3: Kiểm tra tính hợp lệ.
+- Bước 4: Tạo mới hoặc load một super block và root inode.
+- Bước 5: Thực hiện việc mount
+- Bước 6: Trả về một errorf (nếu có lỗi)
+- Bước 7: Giải phóng fs context.
+
+Việc tạo và tái cấu trúc một superblock được quản lý bởi một fs context, VFS sử dụng cấu trúc dữ liệu ```struct fs_context``` để lưu giữ các thông tin về một fs context.
+{% highlight C linenos %}
+struct fs_context {
+	/* ops là các thao tác có thể được thực hiện trên một fs context, đây là một trường quan trọng và bắt buộc phải được gán giá trị tại thời điểm khởi tạo một fs context */
+	const struct fs_context_operations *ops;
+	/* Một con trỏ tới fs type (chủ của fs context này), trường này giúp cho việc thay đổi các giá trị của fs type đơn giản hơn */
+	struct file_system_type *fs_type;
+	/* Chứa private data, cấu trúc dữ liệu có thể được định nghĩa bởi developer của fs type */
+	void			*fs_private;
+	/* Root của mountable tree */
+	struct dentry		*root;
+	/* Namespace */
+	struct user_namespace	*user_ns;
+	struct net		*net_ns;
+	/* Credentials */
+	const struct cred	*cred;
+	/* Source, chẳng hạn như /dev/sda1 hoặc host:/path */
+	char			*source;
+	char			*subtype;
+	/* Security data của super block */
+	void			*security;
+	/* Dùng để phân biệt các supber block */
+	void			*s_fs_info;
+	unsigned int		sb_flags;
+	unsigned int		sb_flags_mask;
+	unsigned int		s_iflags;
+	unsigned int		lsm_flags;
+	/* FS_CONTEXT_FOR_MOUNT, FS_CONTEXT_FOR_SUBMOUNT hoặc FS_CONTEXT_FOR_RECONFIGURE */
+	enum fs_context_purpose	purpose:8;
+	/* Cut... */
+};
+{% endhighlight %}
+Linux kernel sử dụng hàm ```alloc_fs_context()``` để tạo mới một đối tượng thuộc kiểu dữ liệu này. Trường ```ops``` của cấu trúc dữ liệu này là một con trỏ tới một đối tượng ```fs_context_operations```, đối tượng này chứa các con trỏ hàm được sử dụng ở các giai đoạn khác nhau trong cơ chế mount của fs context.
 {% highlight C linenos %}
 struct fs_context_operations {
-	void (*free)(struct fs_context *fc);
+	/* Cleanup fs context */
+	void (*free)(struct fs_context *fc); 
+	/* Duplicate the fs-private data. */
 	int (*dup)(struct fs_context *fc, struct fs_context *src_fc);
+	/* Parse options */
 	int (*parse_param)(struct fs_context *fc, struct fs_parameter *param);
 	int (*parse_monolithic)(struct fs_context *fc, void *data);
+	/* Sẽ gọi đến hàm fill_super() dùng để tạo mountable và superblock */
 	int (*get_tree)(struct fs_context *fc);
+	/* Reconfigure */
 	int (*reconfigure)(struct fs_context *fc);
 };
 {% endhighlight %}
+VFS cung cấp một số hàm để sử dụng cho mục đích tạo super block và root node (Được gọi từ ```get_tree()``` của fs context operations):
+{% highlight C %}
+int get_tree_nodev(struct fs_context *fc,
+		  int (*fill_super)(struct super_block *sb,
+				    struct fs_context *fc));
+int get_tree_single(struct fs_context *fc,
+		  int (*fill_super)(struct super_block *sb,
+				    struct fs_context *fc));
+int get_tree_single_reconf(struct fs_context *fc,
+		  int (*fill_super)(struct super_block *sb,
+				    struct fs_context *fc));
+int get_tree_keyed(struct fs_context *fc,
+		  int (*fill_super)(struct super_block *sb,
+				    struct fs_context *fc),
+		void *key);
+{% endhighlight %}
+Cả 4 hàm trên đều là wrapper của hàm ```vfs_get_super()```. ```vfs_get_super()``` có tác dụng tìm kiếm hoặc khởi tạo mới một super block nếu nó chưa tồn tại. Hàm này sẽ sử dụng con trỏ hàm ```fill_super``` được truyền vào để tạo một super block mới nếu cần thiết. Quá trình tìm kiếm được điều khiển bởi @keyring, @keyring có thể có các giá trị khác nhau như sau:
+- ```vfs_get_single_super``` Chỉ một super block của fs type này có thể tồn tại trong hệ thống.
+- ```vfs_get_keyed_super ``` Các super block của fs type này cần có giá trị key khác nhau (key được lưu trong s_fs_info),
+- ```vfs_get_idependent_super``` Có thể tồn tại nhiều super block của fs type này và không cần key.
+<br><br>
+{% highlight C %}
+int (*parse_param)(struct fs_context *fc, struct fs_parameter *param);
+{% endhighlight %}
+sử dụng ```struct fs_parameter_spec``` và hàm ```fs_parse()``` để phân tích các tham số truyền vào. Mỗi đối tượng ```struct fs_parameter_spec``` giống như một entry trong từ điển, nó có một key, một value và có type, ví dụ:
+{% highlight C linenos %}
+struct fs_parameter_spec {
+	const char		*name;
+	fs_param_type		*type;	/* The desired parameter type */
+	u8			opt;	/* Option number (returned by fs_parse()) */
+	unsigned short		flags;
+	const void		*data;
+};
+
+static const struct fs_parameter_spec proc_fs_parameters[] = {
+	fsparam_u32("gid",	Opt_gid),
+	fsparam_string("hidepid",	Opt_hidepid),
+	fsparam_string("subset",	Opt_subset),
+	{}
+};
+{% endhighlight %}
+<br>
+Tùy thuộc vào kiểu dữ liệu khai báo mà VFS sẽ sử dụng hàm parser phù hợp, danh sách các hàm/kiểu dữ liệu được hỗ trợ bởi VFS có thể xem ở [đây](https://elixir.bootlin.com/linux/v5.16/source/include/linux/fs_parser.h#L119)
+
 <b>VFS schema</b><br><br>
 ![Linux management structures](/images/vfs/vfs.png)
