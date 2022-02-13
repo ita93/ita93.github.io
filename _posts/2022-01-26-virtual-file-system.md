@@ -374,6 +374,27 @@ struct inode_operations {
 }
 {% endhighlight %}
 
+Một đối tượng in-memory inode mới được tạo ra bằng cách sử dụng hàm ```new_inode()```, hàm này sẽ yêu cầu bộ nhớ cho Inode mới, và thêm inode này vào cuối list ```s_inodes``` của super block được truyền vào:
+{% highlight C linenos %}
+struct inode *new_inode(struct super_block *sb)
+{
+	struct inode *inode;
+
+	spin_lock_prefetch(&sb->s_inode_list_lock);
+
+	inode = new_inode_pseudo(sb); /* Gọi tới inode_alloc() để yêu cầu vùng nhớ cho inode mới */
+
+	if (inode) /* Nếu việc cấp phát diễn ra thành công thì thêm inode vào list s_inodes */
+		inode_sb_list_add(inode);
+	return inode;
+}
+{% endhighlight %}
+
+Hàm ```inode_alloc()``` sẽ sử dụng con trỏ hàm từ ```struct super_operations``` để cấp phát inode mới, ví dụ với ext4 fs thì con trỏ hàm này sẽ trỏ tới hàm:
+{% highlight C %}
+static struct inode *ext4_alloc_inode(struct super_block *sb)
+{% endhighlight %}
+
 Như đã nói ở trên, thì ```super_block``` chứa các thông tin về một mounted fs, các super block sẽ được tạo ra khi người dùng thực hiện mount một phân vùng mới thông qua hàm mount. VFS sử dụng các hàm fill_super để load các thông tin về fs vừa được mount vào trong ```super_block```. Ngoài ra VFS cũng hỗ trợ việc truyền vào các tùy chọn cho một mount fs, (ví dụ: ``` mount -t iso9660 -o ro /dev/cdrom /mnt```) hay việc giải phóng các tài nguyên bộ nhớ liên quan đến một mounted fs khi chúng ta umount. Tất cả các nhiệm vụ này được VFS thực hiện thông qua một cấu trúc dữ liệu tên là ```fs_context_operations```.
 #### Subsection: [File system context](https://elixir.bootlin.com/linux/v5.16/source/Documentation/filesystems/mount_api.rst) (kernel 5.4)
 Trước đây, việc mount một fs mới được thực hiện thông qua con trỏ hàm ```mount()``` của cấu trúc dữ liệu ```struct file_system_type```, tuy nhiên kể từ phiên bản kernel <i>5.4</i>, linux kernel đã giới thiệu một cơ chế mới có tên là <i>file system context</i>, cơ chế này cung cấp cho VFS khả năng tham số hóa qua trình khởi tạo/tìm kiếm/tái cấu hình super block.
