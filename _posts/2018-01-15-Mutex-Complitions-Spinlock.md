@@ -23,7 +23,7 @@ struct mutex {
 };
 {% endhighlight %}
 
-Một mutex có thể được khởi tạo bằng <code>DEFINE_MUTEX(name)</code> - trong trường hợp mutex là một biến global khai báo ở compile time. Hoặc <code>mutex_init(struct mutex *lock)</code>- trong trường hợp mutex mutex được khai báo ở run-time.
+Một mutex có thể được khởi tạo bằng <code>DEFINE_MUTEX(name)</code> - trong trường hợp mutex được khai báo vả khởi tạo ở compile time. Hoặc <code>mutex_init(struct mutex *lock)</code>- trong trường hợp chúng ta muốn khởi tạo mutex ở run-time.
 
 Khi mutex đã được khởi tạo thì chúng ta có thể lock hay unlock nó. Kernel API cung cấp 5 hàm cho các tác vụ này, bao gồm 3 hàm được sử dụng cho việc lock, một hàm cho việc unlock, hàm còn lại dùng cho việc kiểm tra tình trạng mutex.
    - <code>mutex_lock</code> Sử dụng để lock/acquire mutex. Nếu mutex không khả dụng, thì task hiện tại sẽ được cho vào trạng thái sleep cho đến khi nó giành được mutex.
@@ -33,18 +33,20 @@ Khi mutex đã được khởi tạo thì chúng ta có thể lock hay unlock n�
    - <code>mutex_is_locked</code> kiểm tra xem mutex có đang bị lock không (có thể dùng chúng với mutex_trylock).
 
 Tại một thời điểm thì có một và chỉ một task có thể nắm giữ mutex, hơn nữa chỉ có task đang nắm giữ Mutex mới có thể thực hiện các thay đổi trạng thái của Mutex. Quyền sở hữu mutex không có tính đệ quy, tức là khi bạn không thể gọi đến hàm <code>lock()</code> của một mutex mà ta đã gọi hàm <code>lock()</code> thành công trước đó.
+Khi một task không dành được quyền sử dụng thì nó sẽ được chuyển sang trạng thái "ngủ" (sleep) và scheduler sẽ đưa nó vào hàng đợi để dành processor cho một task khác. Điều này có nghĩ là mutex chỉ có thể được sử dụng trong process context, chúng ta KHÔNG thể sử dụng mutex khi đang ở trong interrupt context được. 
+
 ## 2. Completion Variable
 Một trong các pattern phổ biến trong kernel programming là khởi tạo một số activity bên ngoài luồng thực thi hiện tại, sau đó đợi đến khi activity đó hoàn thành(async), Activity này có thể là tạo một kernel thread hoặc một user-space process mới, một request đến một process đã tồn tại, hoặc một số hardware-based action.
 Ví dụ:
 {% highlight c %}
-	struct semaphore sem;<br/>
-	init_MUTEX_LOCKED(&sem);<br/>
-	start_external_task(&sem);<br/>
+	struct semaphore sem;
+	init_MUTEX_LOCKED(&sem);
+	start_external_task(&sem);
 	down(&sem);
 {% endhighlight %}
 (Code trên sẽ làm giảm performance, hơn nữa vì semaphore đã bị loại bỏ trong các bản kernel > 3.x nên code này không compile được đâu :gach: )
 external_task sau đó có thể gọi up(&sem) khi công việc của nó hoàn thành. 
-Completion interface được dùng trong trường hợp này, nó cho phép một thread có thể thông báo với một thread khác rằng nó đã hoàn thành công việc. Do kỹ thuật này khá thông dụng, nên Linux kernel cung cấp <b>Condition variable</b> để thực hiện các thao tác này.
+Completion interface được dùng trong trường hợp này, nó cho phép một thread có thể thông báo với một thread khác rằng nó đã hoàn thành công việc. Do kỹ thuật này khá thông dụng, nên Linux kernel cung cấp <b>Completion variable</b> để thực hiện các thao tác này.
 <b>Compiletion variable</b> trong linux kernel được biểu diễn bằng <code>struct completion</code>, cấu trúc dữ liệu này và các function thao tác trên nó được khai báo trong file header: <code>linix/completion.h</code><br/>
 Tạo một completion tại compile time bằng macro: <code>DECLARE_COMPLETION(my_completion);</code><br/>
 Trường hợp cần khởi tạo ở runtime:
@@ -62,12 +64,14 @@ Một completion thường là one-shot device, tức là nó chỉ được dù
 <code>INIT_COMPLETION(struct completion c);</code><br/>
 Appendex: <code>void complete_and_exit(struct completion *c, long retval);</code>
 
+Một ứng dụng phổ biến của completion variable trong Linux kernel là dùng để kiểm tra việc load các offload-firmware cho các thiết bị PCIe hay USB.
+
 ## 3. Spinlocks
 Mặc dù mutex rất hữu ích, nhưng trong kernel việc xử lý race condition được thực hiện bằng một kỹ thuật tên là spinlock. Không giống như mutex, spinlocks có thẻ được sử dụng được ở trong các đoạn code không thể sleep, ví dụ như các interrupt handlers. Khi được sử dụng đúng cách, spinlock cung cấp hiệu năng cao hơn so với mutex. Tuy nhiên spinlock cũng có một tập các ràng buộc riêng của nó.<br/>
 
 Một spinlock là một mutual exclusion device có thể có hai và chỉ hai trạng thái "locked" và "unlocked". Nó thường được implement như một bit trong một số int. <br/>
 Nếu như lock là khả dụng, thì "locked" bit được set và code sẽ tiếp tục thực thi (đi vào critical section). Ngược lại, nếu một ai đó đã set bit "locked" từ trước, thì code sẽ đi vào một vòng lặp nhỏ, và lặp đi lặp lại việc kiểm tra lock cho đến khi bit "locked" được unset. Vòng lặp này được gọi là <code>spin</code>. <br/> Đây cũng là điểm khác biệt giữa Mutex và Spinlock. 
-Trong thời gian spinlock đang "xoay" thì processor sẽ không thể thực thi các tác vụ khác, còn mutex thì processor có thể chuyển sang làm việc khác. Thoạt nghe thì có vẻ spinlock đã lãng phí tài nguyên (processor), tuy nhiên thực tế thì với các trường hợp trong kernel, mà thời gian chờ đợi để truy cập dữ liệu dùng chung của task là rất nhỏ, và tần suất vào ra miền dùng chung cao, thì việc sử dụng spinlock vẫn cho hiệu quả hơn hẳn vì nó không tốn chi phí  thực hiện các context switch.
+Trong thời gian spinlock đang "xoay" thì processor sẽ không thể thực thi các tác vụ khác, còn mutex thì processor có thể chuyển sang làm việc khác. Thoạt nghe thì có vẻ spinlock đã lãng phí tài nguyên (processor), tuy nhiên thực tế thì với các trường hợp mà thời gian chờ đợi để truy cập dữ liệu dùng chung của task là rất nhỏ, và tần suất vào ra miền dùng chung cao, thì việc sử dụng spinlock vẫn cho hiệu quả hơn hẳn vì nó không tốn chi phí  thực hiện các context switch.
 Tất nhiên, việc set và unset "locked" bit cần được thực hiện trong ngữ cảnh atomic, điểu này đảm bảo rằng chỉ có một thread duy nhất có thể dành được lock, kể cả nếu như có nhiều spin đang hoạt động.<br/>
 Cần cẩn thận với deadlocks trên hyperthreaded processors.<br/>
 Spinlock được tạo ra để hướng đến việc sử dụng trên multiprocessor systems.
