@@ -96,7 +96,8 @@ map = __populate_section_memmap(pfn, PAGES_PER_SECTION,
 ```
 
 Lưu ý là ms->section_mem_map sẽ được encode như sau:
-```ms->section_mem_map = mem_map_addr - section_to_pfn(sec);
+```
+ms->section_mem_map = mem_map_addr - section_to_pfn(sec);
 ```
 Trong đó mem_map_addr là địa chỉa của phần tử đầu tiên trong mảng []page, còn section_to_pfn(sec) sẽ trả về PFN của page đầu tiên trong section này.
 
