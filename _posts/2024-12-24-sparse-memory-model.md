@@ -28,12 +28,12 @@ struct mem_section {
 {% endhighlight %}
 
 Các `mem_section` của hệ thống được kernel lưu trữ trong một mảng hai chiều có tên là [`mem_section`]("https://elixir.bootlin.com/linux/v6.5-rc7/source/mm/sparse.c#L27"), mỗi element trong mảng này quản lý một vùng địa chỉ có kích thước 128MB (focus on x86_64), 
-{% hightlight c %}
+{% highlight c %}
 struct mem_section mem_section[NR_SECTION_ROOTS][SECTIONS_PER_ROOT];
 // put macros here for easier reference
 #define SECTIONS_PER_ROOT   (PAGE_SIZE/sizeof(struct mem_section))
 #define NR_SECTION_ROOTS DIV_ROUND(NR_MEM_SECTIONS, SECTION_PER_ROOT)
-{% endhightlight %}
+{% endhighlight %}
 
 Có thể thấy rằng mỗi section root sẽ cần không gian nhớ 1 page để lưu trữ thông tin, tức là toàn bộ hệ thống của NR_SECTION_ROOTS để lưu trữ thông tin về bộ nhớ vật lý.
 Với hệ thống X86_64 sử dụng 5 level page table (52 bits physical memory) thì cần tất cả 2^19 (`1 << (52 - 27)`)sections để theo dõi thông tin bộ nhớ vật lý, tương tự thì đối với hệ thống sử dụng 4 level page table sẽ là 2^11 sections.
