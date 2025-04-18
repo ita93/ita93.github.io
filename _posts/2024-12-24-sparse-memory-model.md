@@ -122,6 +122,7 @@ Do ms->section_mem_map = start_page - start_pfn nên pg - ms->section_mem_map s�
 
 ### Node và zone
 Trong các hệ thống hiện đại, các vùng nhớ khác nhau của bộ nhớ chính có thể mang đến tốc độ truy cập khác nhau đối với các Core khác nhau. Ví dụ như một hệ thống có nhiều CPU socket khác nhau với các memory bank được gắn trực tiếp vào các socket này, các CPU sẽ truy xuất đến các memory bank trên socket của nó nhanh hơn các memory bank được gắn vào socket của các CPU khác. Các hệ thống này được gọi là NUMA (Non-uniform memory access), thiết kế này cho phép OS có thể tăng performance của một process bằng cách schedule nó tới CPU gần với vùng nhớ chứa dữ liệu của process này (CPU-Pinning).
+
 ![NUMA system với 2 node](/images/mm/18.png)
 
 Trong linux kernel mỗi NUMA node được thể hiện bằng một object kiểu [`struct pglist_data`](https://elixir.bootlin.com/linux/v6.6.86/source/include/linux/mmzone.h#L1266) alias `pg_data_t`. X86_64 định nghĩa một mảng tĩnh `struct pglist_data *node_data[MAX_NUMNODES] __read_mostly;` để lưu trữ các object này (MAX_NUMNODES tùy vào config, tối đa là 1<<10 đối vỡi intel). Các NUMA node trong hệ thống sẽ được thiết lập meta data thông qua code path
