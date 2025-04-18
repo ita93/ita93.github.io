@@ -119,3 +119,59 @@ Một số lower bit của ms->section_mem_map sẽ được sử dụng để l
 })
 ```
 Do ms->section_mem_map = start_page - start_pfn nên pg - ms->section_mem_map sẽ là ```pg - start_page + start_pfn ``` = PFN của pg. section_mem_map đã chứa luôn start_pfn của section mà không cần phải tạo thêm một trường khác để lưu nó.
+
+### Node và zone
+Trong các hệ thống hiện đại, các vùng nhớ khác nhau của bộ nhớ chính có thể mang đến tốc độ truy cập khác nhau đối với các Core khác nhau. Ví dụ như một hệ thống có nhiều CPU socket khác nhau với các memory bank được gắn trực tiếp vào các socket này, các CPU sẽ truy xuất đến các memory bank trên socket của nó nhanh hơn các memory bank được gắn vào socket của các CPU khác. Các hệ thống này được gọi là NUMA (Non-uniform memory access), thiết kế này cho phép OS có thể tăng performance của một process bằng cách schedule nó tới CPU gần với vùng nhớ chứa dữ liệu của process này (CPU-Pinning).
+![NUMA system với 2 node](/images/mm/18.png)
+
+Trong linux kernel mỗi NUMA node được thể hiện bằng một object kiểu [`struct pglist_data`](https://elixir.bootlin.com/linux/v6.6.86/source/include/linux/mmzone.h#L1266) alias `pg_data_t`. X86_64 định nghĩa một mảng tĩnh `struct pglist_data *node_data[MAX_NUMNODES] __read_mostly;` để lưu trữ các object này (MAX_NUMNODES tùy vào config, tối đa là 1<<10 đối vỡi intel). Các NUMA node trong hệ thống sẽ được thiết lập meta data thông qua code path
+```
+start_kernel();
+-->setup_arch();
+    --> initmem_init();
+        --> x86_numa_init();
+```
+
+Trong khi đó zone được dùng để phân chia bộ nhớ thành các khoảng địa chỉ vật lý liên tục mà các địa chỉ trong cùng một zone sẽ có cùng đặc tính riêng biệt:
+- ZONE_DMA: sử dụng cho direct memory access của các legacy device (thường chỉ truy cập được 16MB đầu tiên của bộ nhớ)
+- ZONE_DMA32: Tương tự zone DMA, nhưng có thể dùng cho các device có thể truy cập đến địa chỉ 4GB
+- ZONE_NORMAL: Vùng nhớ thông thường 
+- ZONE_HIGHMEM: Cái này chỉ dùng cho các hệ 32bit cũ (intel)
+- ZONE_MOVABLE: Zone ảo, không phản ánh về đặc tính địa chỉ vật lý mà phản ánh khả năng di động của page
+
+Mỗi node metadata object (`pg_data_t`) chứa thông tin các zone của mỗi node trong field `pg_data_t->node_zones[MAX_NR_ZONES]. 
+Mỗi struct zone chứa một mảng các free lists cho mỗi page order size (index << 2 of pages per pageblock) trong field `zone->free_area[MAX_ORDER], field này được bảo vệ bới một spinlock.
+Mỗi free_area chứa một mảng các head pointer đến một linked list chứa các free page trong free_area có cùng Migrate_types : `free_area->free_list[MIGRATE_TYPES]`.
+
+Hiện tại, trong linux kernel có các migrate types sau:
+- MIGRATE_UNMOVABLE: Những page có migrate type này không thể được di cư. Thông thường đây là các page được allocate bởi kernel mà được truy cập trực tiếp bằng indexed tới địa chỉ vật lý mà không có abstraction nào nên không thể được di chuyển.
+- MIGRATE_MOVABLE: Các page này có thể được duy chuyển tùy ý, thông thường là các page thuộc về user land, được truy cập thông qua abstraction (virtual address) nên địa chỉ vật lý thực tế không quá quan trọng.
+- MIGRATE_RECLAIMABLE: Slab pages, không thể di chuyển, nhưng có thể được reclaimed thông qua shirnking.
+- MIGRATE_HIGHATOMIC: Một migrate type đặc biệt để reserve bộ nhớ cho atomic allocation
+- MIGRATE_CMA: Sử dụng cho Continous memory allocation (CMA), các page này cũng có thể dùng cho MOVEABLE allocations.
+- MIGRATE_ISOLATE: Không được động tới.
+
+<span style="color:blue">Tại sao chúng ta phải phân loại các pages vào các migrate type khác nhau? </span>
+Một vấn đề nan giải của linux kernel cũng như các OS khác là [memory fragmentation](https://www.pingcap.com/blog/linux-kernel-vs-memory-fragmentation-1/). Không giống như đối với disk fragmentation, chúng ta không thể dễ dàng sắp xếp lại các page để giải quyết vấn đề này được, linux kernel chọn cách phòng tránh memory fragmention là chủ yếu, việc di sửa đổi memory layout để giải quyết các phân mảnh đã xảy ra được xem như giải pháp cuối cùng 
+
+Migratype là một cố gắng nữa để giải quyết vấn đề nan giải này.
+Trong ngữ cảnh của buddy allocator, khi giải phóng bộ nhớ, allocator sẽ Gộp các page nhỏ hơn với buddy pages của nó để tạo thành page có order lớn hơn. Giả sử như chúng ta tìm được một vùng nhớ có dạng : [F] [A][F][F][F], thì nếu các page này là movable chúng ta có thể migrate page thứ 2([A]) để tạo thành 1 page order-2. Tuy nhiên nếu như các page MOVABLE và UNMOVABLE nằm cạnh nhau thì chúng ta không thể thực hiện được điều này.
+Kernel sử dụng các page blocks với kích thước là pageblock_order để gom các page có cùng MIGRATE lại với nhau.
+Các free_list của buddy allocator sẽ được chia nhỏ ra theo các MIGRATE_TYPE, các hàm allocations sẽ phải chỉ rõ MIGRATE mà nó muốn dùng để cấp phát bộ nhớ.
+MIGRATE_TYPE của 1 page có thể được lấy từ hàm get_pageblock_migratetype()
+Tại thời điểm khởi động, tất cả các pages đều là MIGRATE_MOVABLE, sau đó memmap_init_range() sẽ update migrate type của các page.
+
+Các zone sẽ được thiết lập thông qua path 
+```
+start_kernel();
+--> mm_core_init();
+    --> build_all_zonelists(NULL);
+        --> build_all_zonelists_init(void);
+            --> static void build_zonelists(pg_data_t *pgdat);
+                --> build_zonelists_in_node_order();build_zonelists_in_node_order(pg_data_t *pgdat, int *node_order, unsigned nr_nodes);
+                    -->  build_zonerefs_node()
+                --> void build_thisnode_zonelists(pg_data_t *pgdat)
+```
+
+#### Mối liên hệ giữa các data struct sử dụng trong quản lý bộ nhớ vật lý.
+![Physcal memory management](/images/mm/Physcal%20memory%20manangement.drawio.png)
