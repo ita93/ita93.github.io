@@ -1,8 +1,11 @@
+---
 layout: post
 
 category: Linux device driver
 
 comments: true
+---
+
 # Virtual Machine Monitor với KVM và Rust
 Thử viết một VMM dựa trên KVM API bằng Rust trong đôi ngày cuối tuần.
 
@@ -26,6 +29,7 @@ Còn theo như cái sự hiểu biết của bản thân tui, thì hypervisor l�
 Các hypervisor được chia làm hai loại
 #### Type 1: Bare-metal Hypervisor
 Chạy trực tiếp trên phần cứng, không thông qua việc sử dụng bất kỳ hệ điều hành nào, nó thực hiện đầy đủ các chức năng của hệ điều hành.
+```
 ┌─────────┐ ┌─────────┐ ┌─────────┐
 │  VM 1   │ │  VM 2   │ │  VM 3   │
 │ (Guest) │ │ (Guest) │ │ (Guest) │
@@ -41,10 +45,12 @@ Chạy trực tiếp trên phần cứng, không thông qua việc sử dụng b
      ┌───────────▼───────────┐
      │       Hardware        │
      └───────────────────────┘
+```
 Ví dụ: VMware ESXi, Microsoft Hyper-V, Xen, KVM (with Linux as the host)
 Do hypervisor loại 1 chạy trực tiếp trên phần cứng nên nó mang lại hiệu năng cao hơn và an toàn hơn (do nó không chứa các component thừa thãi của một OS thông thường)
 #### Type 2: 
 Là một phần mềm sử dụng lại sức mạnh của một OS thông thường
+```
 ┌─────────┐ ┌─────────┐
 │  VM 1   │ │  VM 2   │
 │ (Guest) │ │ (Guest) │
@@ -65,6 +71,7 @@ Là một phần mềm sử dụng lại sức mạnh của một OS thông thư
 ┌──────────▼──────────┐
 │      Hardware       │
 └─────────────────────┘
+```
 Ví dụ: VirtualBox (TCG), VMware Workstation, Parallels Desktop, QEMU (TCG no KVM)
 Mặc dù dễ dàng cài đặt và có khả năng tận dụng các phần mềm khác chạy trên cùng hệ điều hành tuy nhiên hypervisor loại này mang lại overhead và ít an toàn hơn.
 
@@ -80,6 +87,7 @@ là một extension của intel cpu:
 KVM sử dụng ioctl thông qua /dev/kvm để cho phép VMM tạo và quản lý máy ảo. KVM chỉ emulate một vài peripheral quan trọng, còn lại các thiết bị ngoại vi khác phải được emulate bởi VMM, ví dụ như block, network, etc...
 
 Theo như định nghĩa ở trên thì KVM là một đứa nhập nhằng không biết xếp vô loại 1 hay 2, nhưng quan trọng là nó chạy được :v
+```
 ┌─────────┐ ┌─────────┐   ┌────────────────┐
 │  VM 1   │ │  VM 2   │   │ Regular Apps   │
 │ (Guest) │ │ (Guest) │   │ (Firefox, etc) │
@@ -98,6 +106,7 @@ Theo như định nghĩa ở trên thì KVM là một đứa nhập nhằng khô
 ┌──────────────────────▼───────────────────┐
 │   Hardware (Intel VT-x / AMD-V)          │
 └──────────────────────────────────────────┘
+```
 
 ## II. Tự viết VMM bằng Rust.
 [`GITHUB`]("https://github.com/ita93/rust-kvm-tool/tree/main")
@@ -195,12 +204,13 @@ tương tự như đối với KVM handle, nếu KVM_CREATE_VM thành công, fil
 Một máy ảo cần RAM. Nhưng khác với máy vật lý, nơi RAM là phần cứng, “RAM” của máy ảo thực chất chỉ là một vùng bộ nhớ của máy host mà chúng ta dành riêng cho máy guest sử dụng.
 
 Điểm mấu chốt là: địa chỉ vật lý của guest không phải là địa chỉ vật lý của host. Khi guest truy cập địa chỉ 0x1000, nó không được phép truy cập trực tiếp vào bộ nhớ của host tại địa chỉ đó. Thay vào đó, KVM sẽ dịch các địa chỉ vật lý của guest sang các địa chỉ ảo của host thông qua một cơ chế ánh xạ (mapping) do chúng ta cung cấp.
-
+```
 Guest Virtual Address (GVA)
         ↓  (guest page table)
 Guest Physical Address (GPA)
         ↓  (EPT / NPT)
 Host Physical Address (HPA)
+```
 
 Chúng ta cần cung cấp địa chỉ vùng nhớ dự định sử dụng cho VM với KVM handle, thông qua ioctl, nhưng trước hết mình sẽ define một struct để việc quản lý và giải phóng vùng nhớ này được dễ dàng hơn [`memory.rs`]("https://github.com/ita93/rust-kvm-tool/blob/main/src/memory.rs")
 {% highlight rust %} 
@@ -498,6 +508,7 @@ fn enter_long_mode(&self, mem: &mut [u8]) -> Result<()> {
 Cơ bản thì code trên sẽ copy toàn bộ slice gdt_table vào `mem` - đây chính là vùng memory chúng ta đã mmap (dành cho VM memory, không phải kvm_run). 
 Ở đây, sregs là biến kiểu `kvm_sregs` lưu trữ các thông tin về các special register của kvm
 Lúc này memory sẽ trông như này:
+```
 Address 0x500:
 ┌────────────────────────┐
 │ 0x0000000000000000     │ NULL descriptor (index 0)
@@ -506,6 +517,7 @@ Address 0x500:
 ├────────────────────────┤
 │ 0x00CF92000000FFFF     │ Data segment (index 2, selector 0x10)
 └────────────────────────┘
+```
 
 Tuy nhiên KVM vẫn chưa có ý thức gì về các register và GDT này, chúng ta cần phải nói cho nó biết thông qua ioctl `KVM_SET_SREGS`
 Đối với mỗi registers này, chúng ta đều cần lấy giá trị hiện tại của nó thông qua ioctl `KVM_GET_SREGS` để đảm bào không ghi đè giá trị không mong muốn lên các sreg mà chúng ta không muốn động tới.
