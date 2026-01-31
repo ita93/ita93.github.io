@@ -1,11 +1,10 @@
 ---
 layout: post
 
-category: Linux device driver
+category: Virtualization
 
 comments: true
 ---
-
 # Virtual Machine Monitor với KVM và Rust
 Thử viết một VMM dựa trên KVM API bằng Rust trong đôi ngày cuối tuần.
 
