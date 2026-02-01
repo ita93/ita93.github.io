@@ -109,6 +109,7 @@ Theo như định nghĩa ở trên thì KVM là một đứa nhập nhằng khô
 
 ## II. Tự viết VMM bằng Rust.
 [`GITHUB`]("https://github.com/ita93/rust-kvm-tool/tree/main")
+
 Thực tế thì việc viết một VMM sử dụng Rust khá là đơn giản bằng cách sử dụng các crate có sẵn của rust-vmm, tuy nhiên do mục tiêu học tập và tìm hiểu, mình sẽ không sử dụng các wrapper/helper của rust-vmm, thay vào đó sẽ sử dụng raw libc function để tương tác với kvm. Tuy vậy, việc viết/gen lại các hằng số cơ bản khác mất thời gian, nên đối với các hằng số, mình sẽ sử dụng lại định nghĩa sẵn của rust-vmm.
 Về cách sử dụng của KVM API, trên LWN đã có một bài hướng dẫn khá đầy đủ [`Using KVM API`]("https://lwn.net/Articles/658511/") . Cơ bản thì nó có mấy bước sau:
 - S1: Mở KVM handle (/dev/kvm) để lấy descriptor, thông qua fd này, vmm có thể tương tác với KVM.
@@ -630,7 +631,7 @@ impl VCpu {
             let ret = unsafe { ioctl(self.fd, KVM_RUN, 0) };
             if ret < 0 {
                 return Err(io::Error::last_os_error())
-                    .context("failed to get supported cpuid features");
+                    .context("failed to get start kvm run");
             }
             let kvm_run = unsafe { self.run_ptr.as_ref() };
             println!("KVM EXIT {:?}\n", kvm_run);
@@ -777,8 +778,8 @@ Có hai việc cần làm đối với `boot_params`, một là thiết lập c�
 - `boot_params.hdr.header`: Đây cũng là một magic number, có giá trị là:  `“HdrS” (0x53726448)`
 - `boot_params.hdr.cmd_line_ptr`: Địa chỉ của kernel command line. (lưu ý là buộc phải nằm trong vùng 32bit)
 - `boot_params.hdr.cmdline_size`: Kích thước của command line, tối đa là 255
-- `boot_params.hdr.loadfags`: bitmask về các option load kernel. Ở đây mình dùng:  CAN_USE_HEAP | 0x01 | KEEP_SEGMENTS, nghĩa là: load protected-mode code ở 0x100000 (bit 0x1), heap_end_ptr là valid
-- `boot_params.hdr.heap_end_ptr`: The end ò setup stack/heap tính từ real-mode code
+- `boot_params.hdr.loadfags`: bitmask về các option load kernel. Ở đây mình dùng: CAN_USE_HEAP \| 0x01 \| KEEP_SEGMENTS, nghĩa là: load protected-mode code ở 0x100000 (bit 0x1), heap_end_ptr là valid
+- `boot_params.hdr.heap_end_ptr`: The end of setup stack/heap tính từ real-mode code
 {% highlight rust %} 
 fn setup_boot_params(boot_params: &mut boot_params, cmdline_addr: u32, total_mem: u64) {
     // 1. Bootloader identification
@@ -1047,6 +1048,84 @@ fn handle_io(&self, kvm_run: &kvm_run) -> Result<()> {
 }
 {% endhighlight %}
 Ở đây cần lưu ý rằng, do 8250/16550 serial driver sẽ đợi ở `COM1_LSR` cho đến khi có tín hiệu thông báo với nó là nó có thể truyền dữ liệu vào iout, ta cần thêm đoạn xử lý để ghí dữ liệu vào  `COM1_LSR`.
+### Thiết lập các interrupt cần thiết
+Trước khi cho CPU guest bắt đầu chạy (KVM_RUN), VMM bắt buộc phải thiết lập hệ thống ngắt (interrupt subsystem). Trên x86, Linux không thể boot đúng nếu thiếu các thành phần này, ngay cả khi chưa có interrupt thực sự được phát ra. Trước khi chạy guest, VMM phải thiết lập đầy đủ hạ tầng ngắt: TSS để xử lý ring transition, identity map để đảm bảo interrupt an toàn khi paging chưa ổn định, irqchip để cung cấp APIC, và PIT để hỗ trợ timing trong early boot. Thiếu bất kỳ thành phần nào cũng có thể khiến Linux treo ngay từ những dòng printk đầu tiên.
+
+Đoạn code sau thực hiện toàn bộ phần thiết lập đó:
+{% highlight rust %} 
+pub fn setup_irqchip(&self) -> Result<()> {
+    // TSS ADDR
+    let ret = unsafe { ioctl(self.fd.as_raw_fd(), KVM_SET_TSS_ADDR, ADDR_TSS, 0) };
+    if ret < 0 {
+        return Err(io::Error::last_os_error()).context("KVM_SET_TSS_ADDR failed");
+    }
+
+    // IDENTITY mapping
+    let ret = unsafe {
+        ioctl(
+            self.fd.as_raw_fd(),
+            KVM_SET_IDENTITY_MAP_ADDR,
+            &ADDR_IDENTITY_MAP,
+            0,
+        )
+    };
+    if ret < 0 {
+        return Err(io::Error::last_os_error()).context("KVM_SET_IDENTITY_MAP_ADDR failed");
+    }
+
+    // Create in-kernel APIC
+    let ret = unsafe { ioctl(self.fd.as_raw_fd(), KVM_CREATE_IRQCHIP, 0) };
+    if ret < 0 {
+        return Err(io::Error::last_os_error()).context("KVM_CREATE_IRQCHIP failed");
+    }
+
+    // Create PIT (timer)
+    let pit_config = kvm_pit_config::default();
+    let ret = unsafe { ioctl(self.fd.as_raw_fd(), KVM_CREATE_PIT2, &pit_config) };
+    if ret < 0 {
+        return Err(io::Error::last_os_error()).context("KVM_CREATE_PIT2 failed");
+    }
+    Ok(())
+}
+{% endhighlight %}
+
+#### KVM_SET_TSS_ADDR – Vì sao cần TSS dù đang ở long mode? 
+TSS là gì?
+
+TSS (Task State Segment) là cấu trúc x86 dùng để:
+- Chuyển stack khi vào interrupt / exception
+- Lưu RSP0 (kernel stack) cho ring transition
+- Hỗ trợ cơ chế interrupt an toàn. CPU thật yêu cầu TSS hợp lệ khi: Có interrupt hoặc có exception, nếu TSS không tồn tại thì sẽ xảy ra triple fault.
+Dù Linux 64-bit không dùng task switching cổ điển, TSS vẫn bắt buộc tồn tại. KVM không tự tạo TSS cho bạn. VMM phải nói rõ: "TSS của guest nằm ở đâu trong guest physical memory."
+Chúng ta cần đưa địa chỉ `ADDR_TSS` cho KVM, địa chỉ này là địa chỉ vật lý của VM, và bắt buộc phải là vùng ram trống, không overlap với kernel, thông thường sẽ đặt ở vị trí thấp (dưới 1 MB) hoặc 1 page riêng, ở đây ta chọn `0xffff_d000`. Và dùng ioctl để thông báo cho KVM về sự lựa chọn này:
+```ioctl(fd, KVM_SET_TSS_ADDR, ADDR_TSS)```
+
+#### KVM_SET_IDENTITY_MAP_ADDR – Cái này để làm gì?
+Identity map là gì?
+Đây là một page table đặc biệt, dùng khi:
+- CPU vào interrupt
+- Nhưng paging / CR3 chưa hoàn chỉnh
+- Hoặc trong các trường hợp chuyển mode
+
+#### KVM_CREATE_IRQCHIP – Tạo APIC trong kernel
+Linux luôn giả định có APIC, ngay cả trong VM.
+Nếu không tạo IRQ chip thì sao?
+- Không có Local APIC
+- Không có timer interrupt
+- Không có IPI
+- SMP không hoạt động
+- Scheduler không chạy
+- Kernel có thể treo hoặc panic rất sớm
+Thật ra thì IRQCHIP có thể được emulate ở userspace, tuy nhiên nó chậm và quá phức tạp so với nội dung bài viết, nên ta dùng của kernel:
+```ioctl(fd, KVM_CREATE_IRQCHIP)```
+
+#### KVM_CREATE_PIT2 –
+Programmable Interval Timer (8254) – bộ đếm thời gian cổ điển, được linux dùng trong earlyboot. Linux dùng PIT để làm gì?
+- Delay calibration
+- Busy-wait loops
+- Đo tần số TSC
+Fallback timer trước khi APIC timer hoạt động.
+Lát nữa chúng ta sẽ thấy lỗi liên quan đến cái này.
 
 ### Thiết lập registers và bắt đầu chạy máy ảo
 Trước khi chuyển quyền điều khiển vào máy ảo (enter the VM), chúng ta cần thiết lập trạng thái ban đầu của CPU:
@@ -1155,9 +1234,11 @@ Code will start at 0x1000000
 [    0.000000] DMI not present or invalid.
 [    0.000000] Hypervisor detected: KVM
 ```
-Tuy nhiên, có điều gì đó không ổn, vì nó stuck luôn ở đây, trong khi mình expect rằng nó sẽ bị panic ở bược load ramfs (theo kinh nghiệm đọc khá nhiều bài về kvm toys)
+Tuy nhiên, có điều gì đó không ổn, vì nó stuck luôn ở đây, trong khi mình expect rằng nó sẽ bị panic ở bược load rootfs (theo kinh nghiệm đọc khá nhiều bài về kvm toys)
+
 Sau một lúc tìm hiểu, thì điều này là do kernel đang đợi dữ liệu ở port `0x61`. Cổng 0x61 là cổng điều khiển bàn phím / PIT đời cũ.
 Linux poll cổng này từ rất sớm để hiệu chuẩn độ trễ và kiểm tra tính hợp lý của thời gian. Nếu VMM không trả về bits như mong đợi, kernel sẽ rơi vào một vòng lặp vô tận (spin forever).
+
 Theo như đoạn code ở trong file `arch/x86/kernel/tsc.c` thì chúng ta cần trả về giá trị `0x20` nếu như có yêu cầu input từ port này:
 {% highlight c %} 
     // linux kernel: arch/x86/kernel/tsc.c
@@ -1176,5 +1257,6 @@ Ta thêm 1 match arm vào handle_io để ghi 0x20 vào 0x61
 Thử chạy lại VMM:
 [![asciicast](https://asciinema.org/a/7NbtVpBDVH8Jyn0k.svg)](https://asciinema.org/a/7NbtVpBDVH8Jyn0k)
 
-Ok, lần này đúng như mong đợi, nó đã panic ở bước load ramfs vì ta không cung cấp cho nó file ramfs nào cả. Nếu có thời gian sẽ cập nhật, không thì thôi.
+Ok, lần này đúng như mong đợi, nó đã panic ở bước load rootfs vì ta không cung cấp cho nó file rootfs nào cả. Nếu có thời gian sẽ cập nhật, không thì thôi.
+
 Như vậy, ta đã có một VMM cơ bản có thể boot được linux kernel viết bằng Rust.
