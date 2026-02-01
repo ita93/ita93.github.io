@@ -7,6 +7,7 @@ comments: true
 ---
 # Virtual Machine Monitor với KVM và Rust
 Thử viết một VMM dựa trên KVM API bằng Rust trong đôi ngày cuối tuần.
+{:toc}
 
 ## I. Vài khái niệm cơ bản
 ### Virtualization - ảo hóa
