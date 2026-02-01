@@ -1260,3 +1260,15 @@ Thử chạy lại VMM:
 Ok, lần này đúng như mong đợi, nó đã panic ở bước load rootfs vì ta không cung cấp cho nó file rootfs nào cả. Nếu có thời gian sẽ cập nhật, không thì thôi.
 
 Như vậy, ta đã có một VMM cơ bản có thể boot được linux kernel viết bằng Rust.
+
+# References
+- [KVM API Documentation](https://www.kernel.org/doc/html/latest/virt/kvm/api.html)
+- [Linux x86 Boot Protocol](https://www.kernel.org/doc/html/latest/arch/x86/boot.html)
+- [Intel Software Developer's Manual](https://www.intel.com/content/www/us/en/developer/articles/technical/intel-sdm.html)
+- [OSDev Wiki - Setting Up Long Mode](https://wiki.osdev.org/Setting_Up_Long_Mode)
+- [rust-vmm Project](https://github.com/rust-vmm) - Production-quality Rust VMM components
+- [yeet.cx are you bios now](https://yeet.cx/blog/you-are-the-bios-now)
+- [KVM host in a few lines of code](https://zserge.com/posts/kvm/)
+
+
+*Built with Rust, curiosity, and lots of debugging.*
