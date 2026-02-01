@@ -897,6 +897,7 @@ ELF (Executable and Linkable Format) là một định dạng chuẩn, dùng đ�
 - Mỗi section/segment phải được nạp vào vị trí nào trong bộ nhớ
 - Mỗi section cần quyền gì (đọc / ghi / thực thi)
 - Địa chỉ entry point (nơi CPU bắt đầu chạy)
+
 Vì vậy, không thể chỉ copy nguyên file vào RAM – ta phải parse ELF và load từng segment vào đúng địa chỉ của nó.
 Đây là program headers của file vmlinux.bin này, thực tế chúng ta chỉ cần load các vùng nhớ được chỉ ra bởi header thuộc type LOAD (PT_LOAD) vào memory, theo đúng địa chỉ (Offset) được nêu ra trong các headers (lưu ý là chúng ta đã setup 1 vùng identity mapping từ trước)
 ```
